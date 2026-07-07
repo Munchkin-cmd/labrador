@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import SideMenu from '@/components/menus/SideMenu'
  
-export default function Header() {
+interface HeaderProps {
+  children?: React.ReactNode // ✅ Adicionado para evitar erro de tipagem
+}
+ 
+export default function Header({ children }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
  
   return (
