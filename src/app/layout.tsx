@@ -1,29 +1,31 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import '@/app/globals.css'
-import { AuthProvider } from '@/context/AuthContext'
-// ✅ REMOVIDO: BottomNav também (será renderizado no game/layout.tsx)
+'use client'
 
-const inter = Inter({ subsets: ['latin'] })
+import { usePathname } from 'next/navigation'
+import Header from '@/components/layout/Header'
+import BottomNav from '@/components/layout/BottomNav'
+import SideMenu from '@/components/menus/SideMenu'
 
-export const metadata: Metadata = {
-  title: 'Labrador',
-  description: 'O jogo de estratégia geopolítica',
-}
+export default function GameLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+  // ✅ Pode manter essa variável, mas não passe ela para o Header
+  const showSideMenu = pathname.startsWith('/game/home') || pathname.startsWith('/game/state')
+
   return (
-    <html lang="pt-BR" className="dark">
-      <body className={`${inter.className} bg-surface text-white`}>
-        <AuthProvider>
-          {/* ✅ AQUI APENAS O CONTEÚDO — sem Header, sem BottomNav */}
-          {children}
-        </AuthProvider>
-      </body>
-    </html>
+    <div className="flex flex-col min-h-screen bg-surface">
+      {/* ✅ Header SEM showMenu */}
+      <Header />
+
+      <main
+        className="flex-1 overflow-y-auto"
+        style={{ paddingTop: 'var(--header-height)', paddingBottom: 'var(--bottom-nav-height)' }}
+      >
+        {/* Opcional: Se quiser renderizar o SideMenu aqui, pode descomentar */}
+        {/* {showSideMenu && <SideMenu open={false} onClose={() => {}} />} */}
+        {children}
+      </main>
+
+      <BottomNav />
+    </div>
   )
 }
