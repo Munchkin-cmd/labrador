@@ -64,7 +64,9 @@ export function useFeed() {
         .select('article_id, vote')
         .eq('user_id', user.id)
         .in('article_id', ids)
-      votes?.forEach(v => { votedMap[v.article_id] = v.vote })
+      
+      // ✅ CORREÇÃO DE TIPO AQUI
+      votes?.forEach(v => { votedMap[v.article_id] = v.vote as 1 | -1; })
     }
 
     const mapped = data.map(a => ({ ...a, user_vote: votedMap[a.id] ?? null }))
@@ -98,7 +100,6 @@ export function useFeed() {
     }))
   }
 
-  // ✅ Corrigido: media_type agora aceita string | null para bater com o banco
   async function publishArticle(
     title: string,
     content: string,

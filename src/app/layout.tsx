@@ -1,31 +1,27 @@
-// 🚀 Versão final corrigida
-'use client'
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { AuthProvider } from '@/context/AuthContext'
 
-import { usePathname } from 'next/navigation'
-import Header from '@/components/layout/Header'
-import BottomNav from '@/components/layout/BottomNav'
+const inter = Inter({ subsets: ['latin'] })
 
-// ... (o resto do seu código sem o showMenu) 
+export const metadata: Metadata = {
+  title: 'Labrador',
+  description: 'O jogo de estratégia geopolítica',
+}
 
-export default function GameLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-
-  // Você pode manter essa variável para outras coisas, mas NÃO passe ela para o Header
-  const showSideMenu = pathname.startsWith('/game/home') || pathname.startsWith('/game/state')
-
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex flex-col min-h-screen bg-surface">
-      {/* ✅ HEADER SEM showMenu */}
-      <Header />
-
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{ paddingTop: 'var(--header-height)', paddingBottom: 'var(--bottom-nav-height)' }}
-      >
-        {children}
-      </main>
-
-      <BottomNav />
-    </div>
+    <html lang="pt-BR" className="dark">
+      <body className={`${inter.className} bg-surface text-white`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
   )
 }

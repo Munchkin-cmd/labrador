@@ -29,7 +29,11 @@ export default function MercadoPage() {
   async function handlePlace() {
     setSub(true); setFeedback('')
     const res = await placeOrder(newRes, newType, newQty, newPrice)
-    setFeedback(res?.message ?? res?.error ?? 'Erro')
+    setFeedback(
+      typeof res === 'object' && res !== null
+        ? (res as any)?.message ?? (res as any)?.error ?? 'Erro'
+        : 'Erro'
+    )
     setSub(false)
   }
 
@@ -37,7 +41,7 @@ export default function MercadoPage() {
     const qty = buyQtys[orderId] ?? 1
     setSub(true); setFeedback('')
     const res = await buyOffer(orderId, qty)
-    setFeedback(res?.success ? 'Compra realizada!' : res?.error ?? 'Erro')
+    setFeedback((res as any)?.success ? 'Compra realizada!' : (res as any)?.error ?? 'Erro')
     setSub(false)
   }
 
