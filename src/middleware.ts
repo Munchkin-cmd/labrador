@@ -19,9 +19,16 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // ✅ CORREÇÃO DA VERCEL: Força o cookie a ser seguro em produção
+            const secure = process.env.NODE_ENV === 'production';
+            supabaseResponse.cookies.set(name, value, { 
+              ...options, 
+              secure, 
+              sameSite: 'lax',
+              httpOnly: true
+            })
+          })
         },
       },
     }
