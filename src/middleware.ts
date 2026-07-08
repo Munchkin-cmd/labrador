@@ -2,9 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,17 +14,14 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) => {
-            // ✅ CORREÇÃO DA VERCEL: Força o cookie a ser seguro em produção
-            const secure = process.env.NODE_ENV === 'production';
-            supabaseResponse.cookies.set(name, value, { 
-              ...options, 
-              secure, 
+            const secure = process.env.NODE_ENV === 'production'
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              secure,
               sameSite: 'lax',
-              httpOnly: true
+              httpOnly: true,
             })
           })
         },
@@ -56,19 +51,16 @@ export async function middleware(request: NextRequest) {
 
   // 3. ✅ PROTEÇÃO DO ADMIN
   if (isAdminRoute && !isAdminLogin) {
-    // Se não estiver logado, manda pro login do admin
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
 
-    // Verifica se o usuário é admin na tabela users
     const { data: userData } = await supabase
       .from('users')
       .select('role')
       .eq('user_id', user.id)
       .single()
 
-    // Se não for admin, redireciona para a home do jogo
     if (userData?.role !== 'admin') {
       return NextResponse.redirect(new URL('/game/home', request.url))
     }

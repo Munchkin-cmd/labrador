@@ -6,12 +6,25 @@ export const supabase = createBrowserClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   {
     cookies: {
+      getAll() {
+        // Lê todos os cookies do navegador
+        const cookies = document.cookie.split('; ').reduce((acc, c) => {
+          const [name, value] = c.split('=')
+          acc[name] = value
+          return acc
+        }, {} as Record<string, string>)
+        return Object.entries(cookies).map(([name, value]) => ({ name, value }))
+      },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          // ✅ Aplica as flags de segurança para ambientes HTTPS
-          const secure = process.env.NODE_ENV === 'production';
-          document.cookie = `${name}=${value}; path=/; secure=${secure}; sameSite=lax; max-age=${options?.maxAge ?? 3600}`;
-        });
+          const secure = process.env.NODE_ENV === 'production'
+          let cookieStr = `${name}=${value}; path=/;`
+          if (options?.maxAge) cookieStr += ` max-age=${options.maxAge};`
+          if (secure) cookieStr += ` secure;`
+          if (options?.sameSite) cookieStr += ` sameSite=${options.sameSite || 'lax'};`
+          if (options?.httpOnly) cookieStr += ` httpOnly;`
+          document.cookie = cookieStr
+        })
       },
     },
   }
