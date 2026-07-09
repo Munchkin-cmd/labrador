@@ -12,12 +12,10 @@ export interface War {
   attacker: { 
     name: string
     flag_emoji: string
-    flag_url: string | null  // ✅ Adicionado para usar as bandeiras reais
   }
   defender: { 
     name: string
     flag_emoji: string
-    flag_url: string | null  // ✅ Adicionado para usar as bandeiras reais
   }
 }
 
@@ -68,36 +66,53 @@ export function useWar() {
 
   async function fetchAll() {
     setLoading(true)
-    const [w, ww, t, m] = await Promise.all([
+    
+    // ✅ Fetch wars sem join (evita erro 400)
+    const [w, ww, t, m, attackerCountries, defenderCountries] = await Promise.all([
       supabase.from('wars')
-        .select(`
-          id, attacker_id, defender_id, status, terrain, started_at,
-          attacker:countries!wars_attacker_id_fkey(name, flag_emoji, flag_url),
-          defender:countries!wars_defender_id_fkey(name, flag_emoji, flag_url)
-        `)
+        .select('id, attacker_id, defender_id, status, terrain, started_at')
         .or(`attacker_id.eq.${country!.id},defender_id.eq.${country!.id}`)
         .in('status', ['active','ceasefire']),
+      
       supabase.from('wars')
-        .select(`
-          id, attacker_id, defender_id, status, terrain, started_at,
-          attacker:countries!wars_attacker_id_fkey(name, flag_emoji, flag_url),
-          defender:countries!wars_defender_id_fkey(name, flag_emoji, flag_url)
-        `)
+        .select('id, attacker_id, defender_id, status, terrain, started_at')
         .in('status', ['active','ceasefire'])
         .order('started_at', { ascending: false })
         .limit(20),
+      
       supabase.from('military_training')
         .select('*')
         .eq('country_id', country!.id)
         .order('created_at', { ascending: false })
         .limit(10),
+      
       supabase.from('military')
         .select('*')
         .eq('country_id', country!.id)
         .single(),
+      
+      // Buscar todos os países (para cache)
+      supabase.from('countries')
+        .select('id, name, flag_emoji'),
+      
+      supabase.from('countries')
+        .select('id, name, flag_emoji'),
     ])
-    setMyWars((w.data as any) ?? [])
-    setWorldWars((ww.data as any) ?? [])
+
+    // ✅ Enriquecer wars com dados de países
+    const countryMap = new Map()
+    ;[...((attackerCountries.data ?? []) as any[]), ...((defenderCountries.data ?? []) as any[])].forEach((c: any) => {
+      countryMap.set(c.id, { name: c.name, flag_emoji: c.flag_emoji })
+    })
+
+    const enrichWars = (wars: any[]) => wars.map((war: any) => ({
+      ...war,
+      attacker: countryMap.get(war.attacker_id) ?? { name: 'Desconhecido', flag_emoji: '🌐' },
+      defender: countryMap.get(war.defender_id) ?? { name: 'Desconhecido', flag_emoji: '🌐' },
+    }))
+
+    setMyWars(enrichWars(w.data ?? []))
+    setWorldWars(enrichWars(ww.data ?? []))
     setTrainings(t.data ?? [])
     setMilitary(m.data)
     setLoading(false)

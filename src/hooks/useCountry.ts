@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 
@@ -56,30 +56,28 @@ export function useCountry() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  // ✅ Memoizar fetchAll com useCallback para evitar loop infinito
+  const fetchAll = useCallback(async () => {
     if (!country?.id) return
-    fetchAll()
-  }, [country?.id])
-
-  async function fetchAll() {
+    
     setLoading(true)
 
     const c = await supabase
       .from('countries')
       .select('*')
-      .eq('id', country!.id)
+      .eq('id', country.id)
       .single<CountryFull>()
 
     const e = await supabase
       .from('economy')
       .select('*')
-      .eq('country_id', country!.id)
+      .eq('country_id', country.id)
       .single<Economy>()
 
     const u = await supabase
       .from('users')
       .select('flag_url, leader_url, banner_urls')
-      .eq('country_id', country!.id)
+      .eq('country_id', country.id)
       .single<UserProfile>()
 
     if (c.data) setData(c.data)
@@ -87,7 +85,12 @@ export function useCountry() {
     if (u.data) setProfile(u.data)
     
     setLoading(false)
-  }
+  }, [country?.id])
+
+  useEffect(() => {
+    if (!country?.id) return
+    fetchAll()
+  }, [country?.id, fetchAll])
 
   return { data, economy, profile, loading, refetch: fetchAll }
 }
