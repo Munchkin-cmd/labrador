@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
+import { useParliament } from '@/hooks/useParliament' // ✅ Importado
 import { Database } from '@/types/database'
 import { 
   ArrowLeft, Coins, Shield, Handshake, Swords, Ban,
@@ -65,6 +66,9 @@ export default function PaisPage() {
   const [selectedMessage, setSelectedMessage] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // ✅ Hook do Parlamento para propor leis
+  const { proposeLaw } = useParliament()
 
   const isMyCountry = myCountry?.id === country?.id
 
@@ -206,37 +210,30 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Declarar Guerra (com verificação de NPC)
+  // ✅ Declarar Guerra (Agora propõe uma lei para o parlamento)
   async function handleDeclareWar() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
 
-    // ✅ VERIFICAÇÃO DE NPC: Só pode declarar guerra contra NPCs (!is_active)
     if (country.is_active === true) {
       setError('❌ Você só pode declarar guerra contra NPCs!')
       return
     }
-
     setError('')
     setSuccess('')
 
-    const { data, error: rpcError } = await supabase
-      .rpc('declare_war', {
-        p_attacker_id: myCountry.id,
-        p_defender_id: country.id
-      }) as { data: RpcResponse | null; error: any }
+    // Propor lei de guerra (ID 8) com o país alvo
+    const res = await proposeLaw(8, country.id)
 
-    if (rpcError || !data?.success) {
-      setError(data?.error || 'Erro ao declarar guerra')
-      return
+    if (res.success) {
+      setSuccess('⚔️ Lei de Guerra enviada ao parlamento! Aguarde a votação.')
+    } else {
+      setError(res.error || 'Erro ao propor guerra')
     }
-
-    setSuccess('⚔️ Guerra declarada!')
-    setRelation((prev) => prev ? { ...prev, status: 'war', relation_score: 0, has_embassy: false } : null)
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Aplicar/Remover Sanções
+  // ✅ Aplicar/Remover Sanções (Agora usa parlamento para aplicar)
   async function handleSanctions() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -246,39 +243,38 @@ export default function PaisPage() {
     setError('')
     setSuccess('')
 
-    let result: { data: RpcResponse | null; error: any }
-
     if (isCurrentlySanctioned) {
-      result = await supabase
-        .rpc('lift_sanctions', {
-          p_from: myCountry.id,
-          p_to: country.id
-        }) as { data: RpcResponse | null; error: any }
+      // Se já estiver sancionado, remover é uma ação unilateral (não precisa de lei)
+      const { error } = await supabase
+        .from('diplomacy')
+        .upsert({
+          country_a_id: myCountry.id,
+          country_b_id: country.id,
+          is_sanctioned: false,
+          status: 'neutral',
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) {
+        setError('Erro ao remover sanções')
+        return
+      }
+      setSuccess('✅ Sanções removidas')
+      setRelation(prev => prev ? { ...prev, is_sanctioned: false, status: 'neutral' } : null)
     } else {
-      result = await supabase
-        .rpc('apply_sanctions', {
-          p_from: myCountry.id,
-          p_to: country.id
-        }) as { data: RpcResponse | null; error: any }
+      // Propor lei de sanções (ID 10) com o país alvo
+      const res = await proposeLaw(10, country.id)
+      if (res.success) {
+        setSuccess('🚫 Lei de Sanções enviada ao parlamento! Aguarde a votação.')
+      } else {
+        setError(res.error || 'Erro ao propor sanções')
+      }
     }
 
-    if (result.error || !result.data?.success) {
-      setError(result.data?.error || 'Erro ao aplicar/remover sanções')
-      return
-    }
-
-    setSuccess(isCurrentlySanctioned ? '✅ Sanções removidas' : '✅ Sanções aplicadas')
-    setRelation((prev) => prev ? { 
-      ...prev, 
-      is_sanctioned: !isCurrentlySanctioned, 
-      status: isCurrentlySanctioned ? 'neutral' : 'sanctioned',
-      relation_score: isCurrentlySanctioned ? Math.min(100, (prev?.relation_score || 0) + 20) : Math.max(0, (prev?.relation_score || 50) - 40),
-      has_embassy: false
-    } : null)
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Construir/Destruir Embaixada
+  // Construir/Destruir Embaixada (Ação unilateral, sem parlamento)
   async function handleEmbassy() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return

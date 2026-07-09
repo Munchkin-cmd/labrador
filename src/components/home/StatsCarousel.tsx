@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { WorldStats } from '@/hooks/useWorldStats'
 import { CountryFull, Economy } from '@/hooks/useCountry'
 import { formatMoney, formatNumber, formatPopulation } from '@/utils/format'
@@ -69,6 +69,16 @@ interface CarouselProps {
 
 function StatsCarousel({ label, slides, accent }: CarouselProps) {
   const [current, setCurrent] = useState(0)
+
+  // ✅ AUTO-PLAY: Muda o slide a cada 5 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % slides.length)
+    }, 5000)
+
+    // Limpa o intervalo quando o componente sair da tela
+    return () => clearInterval(interval)
+  }, [slides.length])
 
   return (
     <div className="px-4">

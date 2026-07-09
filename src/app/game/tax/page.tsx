@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useTaxes } from '@/hooks/useMenu'
 
+// ✅ Nomes CORRIGIDOS com base na imagem do seu banco de dados
 const TAX_FIELDS = [
   { key: 'income_tax',        label: 'Imposto de Renda',         desc: 'Incide sobre salários e rendimentos pessoais' },
   { key: 'corporate_tax',     label: 'Imposto Corporativo',       desc: 'Incide sobre lucro das empresas' },
   { key: 'property_tax',      label: 'Imposto de Propriedade',    desc: 'Incide sobre imóveis e terras' },
-  { key: 'manufacturing_tax', label: 'Manufatura Avançada',       desc: 'Incide sobre produção industrial' },
+  { key: 'manufacturing_tax', label: 'Manufatura',                desc: 'Incide sobre produção industrial' },
   { key: 'vat',               label: 'IVA',                       desc: 'Imposto sobre valor agregado (consumo)' },
   { key: 'customs',           label: 'Alfandegário',              desc: 'Incide sobre importações e exportações' },
 ]
@@ -57,7 +58,7 @@ export default function TaxPage() {
           </span>
         </div>
         <div className="flex items-center justify-between border-t border-white/5 pt-2">
-          <span className="text-white/30 text-xs">Receita estimada por turno</span>
+          <span className="text-white/30 text-xs">Receita estimada por turno (visual)</span>
           <span className="text-green-400 text-sm font-bold">
             +{(avgTax * 10000 * TAX_FIELDS.length).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </span>

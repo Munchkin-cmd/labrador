@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 import { CATEGORIES } from '@/hooks/useFeed'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { 
   ArrowLeft, Eye, Send, Bold, Italic, Underline, 
   AlignLeft, AlignCenter, AlignRight, 
@@ -249,7 +251,6 @@ export default function NovoArtigoPage() {
   }
 
   async function handlePublish() {
-    // ✅ Corrige o erro de country_id undefined
     if (!country?.id) {
       setError('Você precisa estar logado para publicar um artigo.')
       return
@@ -276,7 +277,7 @@ export default function NovoArtigoPage() {
       const { error } = await supabase
         .from('articles')
         .insert({
-          country_id: country.id, // ✅ Agora é garantidamente number
+          country_id: country.id,
           title: form.title,
           content: form.content,
           category: form.category,
@@ -398,16 +399,16 @@ export default function NovoArtigoPage() {
           </p>
         </div>
 
-        {/* Pré-visualização */}
+        {/* ── PRÉ-VISUALIZAÇÃO RENDERIZADA ── */}
         {preview && (
           <div className="bg-white/5 rounded-xl p-4 border border-white/10">
             <h3 className="text-sm font-semibold text-white/60 mb-2">📄 Pré-visualização</h3>
-            <div className="bg-black/30 rounded-lg p-4 max-h-96 overflow-y-auto">
+            <div className="bg-black/30 rounded-lg p-4 max-h-96 overflow-y-auto prose prose-invert prose-sm">
               <h2 className="text-xl font-bold text-white">{form.title || 'Título'}</h2>
               <p className="text-white/40 text-xs mb-2">{form.category || 'Categoria'}</p>
-              <div className="text-white/80 whitespace-pre-wrap text-sm leading-relaxed">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {form.content || 'O conteúdo do artigo aparecerá aqui...'}
-              </div>
+              </ReactMarkdown>
             </div>
           </div>
         )}

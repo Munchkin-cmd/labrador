@@ -120,13 +120,17 @@ export function useParliament() {
     setLoading(false)
   }
 
-  // Propor lei via RPC
-  async function proposeLaw(lawCatalogId: number): Promise<{ success: boolean; message?: string; error?: string }> {
+  // ✅ Propor lei via RPC com suporte a alvo
+  async function proposeLaw(
+    lawCatalogId: number,
+    targetId?: number | null
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!country?.id) return { success: false, error: 'País não encontrado' }
 
     const { data, error } = await supabase.rpc('propose_law', {
       p_country_id:     country.id,
       p_law_catalog_id: lawCatalogId,
+      p_target_id:      targetId || null, // ✅ Passa o alvo para a RPC
     })
 
     if (error) return { success: false, error: error.message }

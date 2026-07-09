@@ -17,7 +17,7 @@ const UNITS = [
 ]
 
 export default function RedePage() {
-  const { regions, buildings, catalog, economy, loading, build, produceEquipment } = useRede()
+  const { regions, buildings, catalog, economy, loading, build, produceEquipment, refetch: refetchRede } = useRede()
   const { military, refetch: refetchMilitary } = useWar()
   
   // ─── ESTADOS DE CONSTRUÇÃO ───────────────────────────────
@@ -48,6 +48,30 @@ export default function RedePage() {
     }, 1000)
     return () => clearInterval(interval)
   }, [])
+
+  // ✅ NOVO: Atualiza automaticamente a lista de edifícios quando um fica pronto
+  useEffect(() => {
+    if (buildings.length === 0) return
+
+    // Encontra o edifício que vai ficar pronto primeiro
+    const nextFinish = Math.min(
+      ...buildings
+        .filter(b => !b.is_built)
+        .map(b => new Date(b.finished_at).getTime())
+    )
+
+    if (!nextFinish || nextFinish <= Date.now()) {
+      // Se já passou do tempo, força a atualização
+      refetchRede()
+      return
+    }
+
+    const timeout = setTimeout(() => {
+      refetchRede()
+    }, nextFinish - Date.now() + 1000) // +1s de margem
+
+    return () => clearTimeout(timeout)
+  }, [buildings, refetchRede])
 
   const selectedCat = catalog.find(c => c.type === selectedType)
   const grouped = catalog.reduce((acc: Record<string,any[]>, c) => {

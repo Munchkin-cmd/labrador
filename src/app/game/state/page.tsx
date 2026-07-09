@@ -56,6 +56,13 @@ export default function StatePage() {
     return () => clearInterval(interval)
   }, [bannerImages.length, hasBanner])
 
+  // ✅ Garante que os dados mais recentes (bandeira e banners) sejam carregados
+  useEffect(() => {
+    if (data?.id) {
+      refetchCountry()
+    }
+  }, [refetchCountry])
+
   // ─── BUSCAR DADOS MILITARES ──────────────────────────────────
   const [military, setMilitary]     = useState<any>(null)
   const [loadingMil, setLoadingMil] = useState(true)
@@ -71,6 +78,7 @@ export default function StatePage() {
 
   // ─── ESTADO DO PARLAMENTO ────────────────────────────────────
   const [selectedLaw, setSelectedLaw] = useState<number | ''>('')
+  const [targetCountryId, setTargetCountryId] = useState<number | null>(null) // ✅ Alvo da lei
   const [proposing, setProposing]     = useState(false)
   const [lawMsg, setLawMsg]           = useState('')
   const [forcing, setForcing]         = useState<string | null>(null)
@@ -162,9 +170,13 @@ export default function StatePage() {
   async function handlePropose() {
     if (!selectedLaw) return
     setProposing(true); setLawMsg('')
-    const res = await proposeLaw(Number(selectedLaw))
+
+    // ✅ Passa o targetId para a lei, se houver
+    const res = await proposeLaw(Number(selectedLaw), targetCountryId)
+
     setLawMsg(res.message ?? res.error ?? 'Erro')
     setSelectedLaw('')
+    setTargetCountryId(null) // Limpa o alvo
     setProposing(false)
   }
 
@@ -403,7 +415,7 @@ export default function StatePage() {
         </div>
       </Section>
 
-            {/* ─── PROPOR LEI ── */}
+      {/* ─── PROPOR LEI ── */}
       <Section title={<span className="flex items-center gap-2"><Gavel size={16} /> PROPOR LEI</span>}>
         <p style={{ color: '#444', fontSize: 12, marginBottom: 10 }}>
           O robô parlamentar vota automaticamente em 5 minutos.
@@ -424,6 +436,24 @@ export default function StatePage() {
           ))}
         </select>
 
+        {/* ✅ SELETOR DE PAÍS ALVO (para leis que precisam de alvo: guerra, sanções, etc.) */}
+        {selectedLaw && [8, 9, 10].includes(Number(selectedLaw)) && (
+          <div className="mb-3">
+            <p className="text-white/60 text-xs mb-1">Selecionar país alvo:</p>
+            <select
+              value={targetCountryId || ''}
+              onChange={e => setTargetCountryId(Number(e.target.value) || null)}
+              className="input-field"
+            >
+              <option value="">Escolha um país...</option>
+              {/* Aqui você deve preencher com a lista de países. Exemplo: */}
+              <option value={1}>Africa Austral</option>
+              <option value={14}>Brasil</option>
+              {/* ... todos os 82 países */}
+            </select>
+          </div>
+        )}
+
         {lawMsg && (
           <p style={{
             fontSize: 13, marginBottom: 10, textAlign: 'center',
@@ -433,7 +463,6 @@ export default function StatePage() {
           </p>
         )}
 
-        {/* ✅ CORREÇÃO: Usando data?.is_active em vez de country?.is_active */}
         <button 
           onClick={handlePropose} 
           disabled={!selectedLaw || proposing || !data?.is_active}
@@ -445,7 +474,7 @@ export default function StatePage() {
           {!data?.is_active ? 'NPCs não propõem leis' : (proposing ? 'Propondo...' : '⚖️ PROPOR LEI')}
         </button>
       </Section>
-      
+
       {/* ── LEIS PENDENTES ── */}
       {pendingLaws.length > 0 && (
         <Section title={<span className="flex items-center gap-2"><Users size={16} /> EM VOTAÇÃO</span>}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useConfiguracoes } from '@/hooks/useMenu'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase/client'
@@ -15,9 +16,11 @@ const STATE_STRUCTURES = [
 ]
 
 export default function ConfiguracoesPage() {
-  const { user, country } = useAuthStore() // ✅ Adicionado country
+  const router = useRouter()
+  const { user, country } = useAuthStore()
   const { data, profile, loading, saving, saveCountry, saveProfile } = useConfiguracoes()
 
+  // ─── ESTADOS DOS CAMPOS ──────────────────────────────────────
   const [motto, setMotto]               = useState('')
   const [leaderName, setLeaderName]     = useState('')
   const [leaderTitle, setLeaderTitle]   = useState('')
@@ -38,6 +41,7 @@ export default function ConfiguracoesPage() {
   const [uploadingFlag, setUploadingFlag] = useState(false)
   const [uploadingLeader, setUploadingLeader] = useState(false)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [activeBannerIndex, setActiveBannerIndex] = useState<number | null>(null) // Índice do banner que está sendo enviado
   
   const flagInputRef = useRef<HTMLInputElement>(null)
   const leaderInputRef = useRef<HTMLInputElement>(null)
@@ -94,9 +98,11 @@ export default function ConfiguracoesPage() {
       setFeedback(`❌ Erro no upload: ${err.message}`)
     } finally {
       setUploading(false)
+      setActiveBannerIndex(null) // Limpa o índice ativo após o upload
     }
   }
 
+  // ─── SALVAR TUDO ────────────────────────────────────────────
   async function handleSave() {
     setFeedback('')
     const [r1, r2] = await Promise.all([
@@ -108,6 +114,22 @@ export default function ConfiguracoesPage() {
       }),
     ])
     setFeedback(r1.success && r2.success ? '✅ Alterações salvas!' : '❌ Erro ao salvar')
+    
+    // ✅ OBRIGATÓRIO: Força o Next.js a recarregar os dados da página STATE e HOME
+    router.refresh()
+    
+    setTimeout(() => setFeedback(''), 4000)
+  }
+
+  // ─── SALVAR APENAS OS BANNERS ──────────────────────────────
+  async function handleSaveBanners() {
+    setFeedback('')
+    const res = await saveProfile({ banner_urls: bannerUrls })
+    setFeedback(res.success ? '✅ Banners salvos com sucesso!' : '❌ Erro ao salvar banners')
+    
+    // ✅ Força o recarregamento dos dados do State/Home
+    router.refresh()
+    
     setTimeout(() => setFeedback(''), 4000)
   }
 
@@ -234,10 +256,10 @@ export default function ConfiguracoesPage() {
         </Field>
       </Section>
 
-      {/* ─── 13 BANNERS ────────────────────────────────────────── */}
+      {/* ─── 13 BANNERS (COM BOTÃO SALVAR BANNERS) ────────────── */}
       <Section title="🎨 BANNERS DO PAÍS (13 FOTOS)">
-        <p className="text-white/40 text-xs">
-          Envie as 13 fotos que aparecerão no carrossel da página State.
+        <p className="text-white/40 text-xs mb-2">
+          Clique em um quadrado para enviar uma foto para aquela posição.
         </p>
         
         {/* Exibição dos banners */}
@@ -245,12 +267,22 @@ export default function ConfiguracoesPage() {
           {Array.from({ length: 13 }).map((_, i) => {
             const imgUrl = bannerUrls[i] || null
             return (
-              <div key={i} className="relative aspect-square bg-black/40 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center">
+              <div 
+                key={i} 
+                className="relative aspect-square bg-black/40 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => {
+                  if (!imgUrl) {
+                    setActiveBannerIndex(i)
+                    bannerInputRef.current?.click()
+                  }
+                }}
+              >
                 {imgUrl ? (
                   <>
                     <img src={imgUrl} alt={`Banner ${i+1}`} className="w-full h-full object-cover" />
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         const newArr = [...bannerUrls]
                         newArr[i] = ''
                         setBannerUrls(newArr)
@@ -268,39 +300,39 @@ export default function ConfiguracoesPage() {
           })}
         </div>
 
-        {/* Botão de Upload de Banner */}
-        <div className="mt-3">
+        {/* Input escondido para upload de banners */}
+        <input
+          ref={bannerInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file && activeBannerIndex !== null) {
+              // ✅ Envia para o índice específico que foi clicado
+              handleUpload(
+                file, 
+                'banners', 
+                (url) => {
+                  const newArr = [...bannerUrls]
+                  newArr[activeBannerIndex] = url
+                  setBannerUrls(newArr)
+                },
+                setUploadingBanner
+              )
+            }
+          }}
+        />
+
+        {/* Botão específico para salvar banners */}
+        <div className="flex gap-3 mt-3">
           <button
-            onClick={() => bannerInputRef.current?.click()}
-            disabled={uploadingBanner || bannerUrls.filter(Boolean).length >= 13}
-            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-2 px-4 text-white/70 text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            onClick={handleSaveBanners}
+            disabled={saving}
+            className="flex-1 bg-primary hover:bg-primary-light text-white font-semibold py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {uploadingBanner ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-            {uploadingBanner ? 'Enviando...' : 'Enviar novo banner'}
+            💾 SALVAR BANNERS
           </button>
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) {
-                const nextIndex = bannerUrls.findIndex(u => !u)
-                if (nextIndex === -1) return
-                handleUpload(
-                  file, 
-                  'banners', 
-                  (url) => {
-                    const newArr = [...bannerUrls]
-                    newArr[nextIndex] = url
-                    setBannerUrls(newArr)
-                  },
-                  setUploadingBanner
-                )
-              }
-            }}
-          />
         </div>
       </Section>
 
