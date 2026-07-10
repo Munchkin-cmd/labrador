@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRede } from '@/hooks/useRede'
 import { useWar } from '@/hooks/useWar'
 import { formatMoney, formatNumber, formatTime } from '@/utils/format'
@@ -39,39 +39,63 @@ export default function RedePage() {
   useEffect(() => {
     const nextCycle = new Date()
     nextCycle.setMinutes(Math.ceil(nextCycle.getMinutes() / 30) * 30, 0, 0)
-    const msLeft = nextCycle.getTime() - Date.now()
-    setTimeLeft(msLeft)
+    
+    const updateTimer = () => {
+      const now = Date.now()
+      const msLeft = nextCycle.getTime() - now
+      setTimeLeft(msLeft > 0 ? msLeft : 0)
+    }
 
-    const interval = setInterval(() => {
-      const newMs = nextCycle.getTime() - Date.now()
-      setTimeLeft(newMs > 0 ? newMs : 0)
-    }, 1000)
+    updateTimer() // Roda na primeira vez
+
+    const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // ✅ NOVO: Atualiza automaticamente a lista de edifícios quando um fica pronto
+  // ✅ CORREÇÃO: Prevenir loop infinito monitorando construções
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     if (buildings.length === 0) return
 
-    // Encontra o edifício que vai ficar pronto primeiro
+    // Filtra apenas os que ainda não estão prontos
+    const inConstruction = buildings.filter(b => !b.is_built)
+    if (inConstruction.length === 0) return // Se não tem nenhum em construção, não faz nada
+
     const nextFinish = Math.min(
-      ...buildings
-        .filter(b => !b.is_built)
-        .map(b => new Date(b.finished_at).getTime())
+      ...inConstruction.map(b => new Date(b.finished_at).getTime())
     )
 
+    // Se já passou do tempo, apenas atualiza sem criar loop
     if (!nextFinish || nextFinish <= Date.now()) {
-      // Se já passou do tempo, força a atualização
-      refetchRede()
+      // Evita chamar refetch se o timer ainda não foi limpo
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      // Dá um pequeno delay para não causar loop infinito
+      timerRef.current = setTimeout(() => {
+        refetchRede()
+        timerRef.current = null
+      }, 500)
       return
     }
 
-    const timeout = setTimeout(() => {
+    // Se estiver no futuro, agenda um refetch para quando o próximo terminar
+    const delay = nextFinish - Date.now() + 1000
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
       refetchRede()
-    }, nextFinish - Date.now() + 1000) // +1s de margem
+      timerRef.current = null
+    }, delay)
 
-    return () => clearTimeout(timeout)
-  }, [buildings, refetchRede])
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [buildings, refetchRede]) // Ainda depende de refetch, mas o timerRef previne loops
 
   const selectedCat = catalog.find(c => c.type === selectedType)
   const grouped = catalog.reduce((acc: Record<string,any[]>, c) => {
@@ -279,7 +303,6 @@ export default function RedePage() {
   )
 }
 
-// ✅ Função Loading definida no final do arquivo
 function Loading() {
   return <div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
 }
