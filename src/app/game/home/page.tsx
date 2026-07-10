@@ -14,20 +14,12 @@ export default function HomePage() {
   const { user } = useAuthStore()
   const router = useRouter()
   
-  // ✅ Extraímos o 'refetch' do hook para forçar a atualização
-  const { data: country, economy, profile, loading: loadingCountry, refetch: refetchCountry } = useCountry()
+  const { data: country, economy, profile, loading: loadingCountry } = useCountry()
   const { stats, loading: loadingWorld } = useWorldStats()
 
   useEffect(() => {
     if (!user) router.replace('/auth/login')
   }, [user, router])
-
-  // ✅ Toda vez que a Home for aberta, force a busca dos dados mais recentes do servidor
-  useEffect(() => {
-    if (country?.id) {
-      refetchCountry()
-    }
-  }, [refetchCountry]) // Executa sempre que o componente montar
 
   if (loadingCountry) {
     return (

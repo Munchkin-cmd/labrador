@@ -9,13 +9,14 @@ interface Props {
 }
 
 export default function CountryBanner({ country, profile }: Props) {
-  const bannerUrl = profile.banner_urls?.[0] ?? null
+  // ✅ CORREÇÃO: Usa a bandeira do país (country.flag_url) em vez do primeiro banner
+  const bannerUrl = country.flag_url ?? null
 
   return (
     <div className="relative w-full h-40 bg-gradient-to-br from-primary-dark to-secondary-dark overflow-hidden">
       {/* Banner background */}
       {bannerUrl ? (
-        <Image src={bannerUrl} alt="Banner" fill className="object-cover opacity-60" />
+        <Image src={bannerUrl} alt="Bandeira" fill className="object-cover opacity-60" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-secondary/60" />
       )}

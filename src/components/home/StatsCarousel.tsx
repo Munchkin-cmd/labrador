@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { WorldStats } from '@/hooks/useWorldStats'
 import { CountryFull, Economy } from '@/hooks/useCountry'
 import { formatMoney, formatNumber, formatPopulation } from '@/utils/format'
@@ -69,16 +69,63 @@ interface CarouselProps {
 
 function StatsCarousel({ label, slides, accent }: CarouselProps) {
   const [current, setCurrent] = useState(0)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // ✅ AUTO-PLAY: Muda o slide a cada 5 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length)
+  // Função para iniciar o timer
+  const startTimer = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => {
+      setCurrent((prev: number) => (prev + 1) % slides.length)
     }, 5000)
+  }
 
-    // Limpa o intervalo quando o componente sair da tela
-    return () => clearInterval(interval)
+  // Função para parar o timer
+  const stopTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  // Inicia o timer quando o componente monta e o slides mudam
+  useEffect(() => {
+    startTimer()
+    return () => stopTimer()
   }, [slides.length])
+
+  // Funções de navegação manual (com reset do timer)
+  const goToSlide = (index: number) => {
+    setCurrent(index)
+    stopTimer()
+    startTimer()
+  }
+
+  const goNext = () => {
+    setCurrent((prev: number) => (prev + 1) % slides.length)
+    stopTimer()
+    startTimer()
+  }
+
+  const goPrev = () => {
+    setCurrent((prev: number) => (prev - 1 + slides.length) % slides.length)
+    stopTimer()
+    startTimer()
+  }
+
+  // Navegação via clique nas laterais
+  const handleSlideClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left // Posição do clique dentro do container
+    const center = rect.width / 2
+
+    if (x < center) {
+      goPrev() // Clicou na metade esquerda → Volta
+    } else {
+      goNext() // Clicou na metade direita → Avança
+    }
+  }
 
   return (
     <div className="px-4">
@@ -87,22 +134,28 @@ function StatsCarousel({ label, slides, accent }: CarouselProps) {
         <p className="text-xs font-bold tracking-widest text-white/40 uppercase">{label}</p>
         {/* Dots */}
         <div className="flex gap-1">
-          {slides.map((_, i) => (
-            <button key={i} onClick={() => setCurrent(i)}
+          {slides.map((_, i: number) => (
+            <button key={i} onClick={() => goToSlide(i)}
               className={`w-1.5 h-1.5 rounded-full transition-all ${i === current ? `${accent} bg-current` : 'bg-white/20'}`}
             />
           ))}
         </div>
       </div>
 
-      {/* Slide */}
-      <div className="bg-surface-card rounded-xl p-3 grid grid-cols-3 gap-2">
-        {slides[current].map((stat) => (
-          <div key={stat.label} className="flex flex-col items-center text-center">
-            <span className={`text-base font-black ${accent}`}>{stat.value}</span>
-            <span className="text-white/40 text-xs mt-0.5">{stat.label}</span>
-          </div>
-        ))}
+      {/* Slide Container (clique na lateral para navegar) */}
+      <div
+        ref={containerRef}
+        onClick={handleSlideClick}
+        className="relative cursor-pointer"
+      >
+        <div className="bg-surface-card rounded-xl p-3 grid grid-cols-3 gap-2 pointer-events-none">
+          {slides[current].map((stat: Stat) => (
+            <div key={stat.label} className="flex flex-col items-center text-center">
+              <span className={`text-base font-black ${accent}`}>{stat.value}</span>
+              <span className="text-white/40 text-xs mt-0.5">{stat.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

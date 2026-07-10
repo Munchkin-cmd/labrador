@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCountry } from '@/hooks/useCountry'
 import { useParliament } from '@/hooks/useParliament'
 import { useAuthStore } from '@/store/authStore'
@@ -40,21 +40,70 @@ export default function StatePage() {
   const { data, economy, profile, loading: loadingC, refetch: refetchCountry } = useCountry()
   const {
     parliament, laws, catalog, loading: loadingP,
-    proposeLaw, forceLaw, nextElectionIn, nextRandomIn, formatCountdown,
+    proposeLaw, forceLaw, nextElectionIn, nextRandomIn,
   } = useParliament()
 
-  // ─── BANNER - FOTOS DOS JOGADORES (CARROSSEL 7s) ──────────
+  // ─── BANNER - FOTOS DOS JOGADORES (CARROSSEL COM SENSOR) ──
   const [bannerIndex, setBannerIndex] = useState(0)
   const bannerImages = profile?.banner_urls || []
   const hasBanner = bannerImages.length > 0
+  const bannerContainerRef = useRef<HTMLDivElement>(null)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Para e reinicia o timer
+  const stopTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  const startTimer = () => {
+    stopTimer()
+    if (hasBanner && bannerImages.length > 1) {
+      intervalRef.current = setInterval(() => {
+        setBannerIndex((prev) => (prev + 1) % bannerImages.length)
+      }, 7000)
+    }
+  }
+
+  // Inicia o timer na montagem
   useEffect(() => {
-    if (!hasBanner) return
-    const interval = setInterval(() => {
-      setBannerIndex((prev) => (prev + 1) % bannerImages.length)
-    }, 7000)
-    return () => clearInterval(interval)
-  }, [bannerImages.length, hasBanner])
+    startTimer()
+    return () => stopTimer()
+  }, [bannerImages.length])
+
+  // Navegação manual
+  const goToSlide = (index: number) => {
+    setBannerIndex(index)
+    stopTimer()
+    startTimer()
+  }
+
+  const goNext = () => {
+    setBannerIndex((prev) => (prev + 1) % bannerImages.length)
+    stopTimer()
+    startTimer()
+  }
+
+  const goPrev = () => {
+    setBannerIndex((prev) => (prev - 1 + bannerImages.length) % bannerImages.length)
+    stopTimer()
+    startTimer()
+  }
+
+  // Clique nas laterais (sensor)
+  const handleBannerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!bannerContainerRef.current || bannerImages.length <= 1) return
+    const rect = bannerContainerRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const center = rect.width / 2
+    if (x < center) {
+      goPrev()
+    } else {
+      goNext()
+    }
+  }
 
   // ✅ Garante que os dados mais recentes (bandeira e banners) sejam carregados
   useEffect(() => {
@@ -78,7 +127,7 @@ export default function StatePage() {
 
   // ─── ESTADO DO PARLAMENTO ────────────────────────────────────
   const [selectedLaw, setSelectedLaw] = useState<number | ''>('')
-  const [targetCountryId, setTargetCountryId] = useState<number | null>(null) // ✅ Alvo da lei
+  const [targetCountryId, setTargetCountryId] = useState<number | null>(null)
   const [proposing, setProposing]     = useState(false)
   const [lawMsg, setLawMsg]           = useState('')
   const [forcing, setForcing]         = useState<string | null>(null)
@@ -161,6 +210,27 @@ export default function StatePage() {
     setRegionLoading(false)
   }
 
+  // ─── CRONÔMETRO DA LEI (SUBSTITUTO DO formatCountdown) ──────
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const getCountdown = (lawId: string) => {
+    const law = laws.find(l => l.id === lawId)
+    if (!law || !law.created_at) return '--:--'
+    
+    const deadline = new Date(new Date(law.created_at).getTime() + 5 * 60 * 1000)
+    const now = new Date()
+    const diff = Math.max(0, deadline.getTime() - now.getTime())
+    
+    if (diff === 0) return 'Votação encerrada'
+    const mins = Math.floor(diff / 60000)
+    const secs = Math.floor((diff % 60000) / 1000)
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  }
+
   if (loadingC || loadingP) return <PageLoading />
   if (!data || !economy || !parliament) return null
 
@@ -170,13 +240,10 @@ export default function StatePage() {
   async function handlePropose() {
     if (!selectedLaw) return
     setProposing(true); setLawMsg('')
-
-    // ✅ Passa o targetId para a lei, se houver
     const res = await proposeLaw(Number(selectedLaw), targetCountryId)
-
     setLawMsg(res.message ?? res.error ?? 'Erro')
     setSelectedLaw('')
-    setTargetCountryId(null) // Limpa o alvo
+    setTargetCountryId(null)
     setProposing(false)
   }
 
@@ -192,10 +259,14 @@ export default function StatePage() {
   const rejectedLaws = laws.filter(l => l.status === 'revoked').slice(0, 5)
 
   return (
-    <div className="flex flex-col gap-5 pb-8">
-
-      {/* ─── BANNER COM FOTOS DOS JOGADORES (CARROSSEL 7s) ── */}
-      <div className="relative h-48 w-full overflow-hidden rounded-xl mx-4 bg-black/40">
+    <div className="flex flex-col gap-5 pb-8 w-full max-w-4xl mx-auto overflow-x-hidden">
+      
+      {/* ─── BANNER COM FOTOS DOS JOGADORES (TAMANHO ORIGINAL h-48) ── */}
+      <div 
+        ref={bannerContainerRef}
+        onClick={handleBannerClick}
+        className={`relative h-48 w-full overflow-hidden rounded-xl mx-4 bg-black/40 border border-white/10 ${hasBanner && bannerImages.length > 1 ? 'cursor-pointer' : ''}`}
+      >
         {hasBanner ? (
           <>
             <img 
@@ -203,17 +274,21 @@ export default function StatePage() {
               alt="Banner do país"
               className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
             />
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-              {bannerImages.map((_: any, idx: number) => (
-                <button
-                  key={idx}
-                  onClick={() => setBannerIndex(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    idx === bannerIndex ? 'bg-primary w-4' : 'bg-white/30 hover:bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
+            
+            {/* Indicadores (bolinhas) */}
+            {bannerImages.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {bannerImages.map((_: any, idx: number) => (
+                  <button
+                    key={idx}
+                    onClick={(e) => { e.stopPropagation(); goToSlide(idx) }}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      idx === bannerIndex ? 'bg-primary w-4' : 'bg-white/30 hover:bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-white/20 text-sm">
@@ -226,8 +301,8 @@ export default function StatePage() {
       <div className="px-4 -mt-6 relative z-10">
         <div className="flex items-end gap-4">
           <div className="w-20 h-16 rounded-lg border-2 border-primary shadow-lg shadow-primary/20 overflow-hidden flex-shrink-0 bg-black/80">
-            {data.flag_url ? (
-              <img src={data.flag_url} alt={data.name} className="w-full h-full object-cover" />
+            {profile?.flag_url ? (
+              <img src={profile.flag_url} alt={data.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-3xl text-white/30">
                 <Flag size={36} />
@@ -449,7 +524,6 @@ export default function StatePage() {
               {/* Aqui você deve preencher com a lista de países. Exemplo: */}
               <option value={1}>Africa Austral</option>
               <option value={14}>Brasil</option>
-              {/* ... todos os 82 países */}
             </select>
           </div>
         )}
@@ -491,7 +565,8 @@ export default function StatePage() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <span className="badge badge-yellow">⏱️ {formatCountdown(law.id)}</span>
+                  {/* ✅ CRONÔMETRO CORRIGIDO */}
+                  <span className="badge badge-yellow">⏱️ {getCountdown(law.id)}</span>
                 </div>
               </div>
               <div className="progress-track" style={{ marginTop: 8 }}>
