@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 
@@ -23,13 +23,11 @@ export function useRede() {
   const [catalog, setCatalog] = useState<any[]>([])
   const [economy, setEconomy] = useState<any>(null)
 
-  useEffect(() => {
+  // ✅ MEMOIZAÇÃO: useCallback garante que a função fetchAll não mude a cada renderização
+  const fetchAll = useCallback(async () => {
     if (!country?.id) return
-    fetchAll()
-  }, [country?.id])
-
-  async function fetchAll() {
     setLoading(true)
+    
     const [r, b, c, e] = await Promise.all([
       supabase.from('regions').select('*').eq('country_id', country!.id),
       supabase.from('buildings')
@@ -38,15 +36,23 @@ export function useRede() {
       supabase.from('building_catalog').select('*'),
       supabase.from('economy').select('*').eq('country_id', country!.id).single(),
     ])
+
     setRegions(r.data ?? [])
     setBuildings(b.data ?? [])
     setCatalog(c.data ?? [])
     setEconomy(e.data)
     setLoading(false)
-  }
+  }, [country?.id])
+
+  useEffect(() => {
+    if (!country?.id) return
+    fetchAll()
+  }, [country?.id, fetchAll]) // ✅ Dependência correta (não causa loop)
 
   // ─── CONSTRUIR EDIFÍCIO ──────────────────────────────────────
   async function build(regionId: string, buildingType: string, quantity: number): Promise<RpcBuildResult> {
+    if (!country?.id) return { success: false, error: 'País não encontrado' }
+    
     const { data, error } = await supabase
       .rpc('construct_building', {
         p_country_id: country!.id,
@@ -62,6 +68,8 @@ export function useRede() {
 
   // ─── PRODUZIR EQUIPAMENTO MILITAR ───────────────────────────
   async function produceEquipment(equipType: string, quantity: number): Promise<RpcProduceResult> {
+    if (!country?.id) return { success: false, error: 'País não encontrado' }
+    
     const { data, error } = await supabase
       .rpc('produce_equipment', {
         p_country_id: country!.id,
@@ -75,7 +83,13 @@ export function useRede() {
   }
 
   return {
-    regions, buildings, catalog, economy, loading,
-    build, produceEquipment, refetch: fetchAll,
+    regions,
+    buildings,
+    catalog,
+    economy,
+    loading,
+    build,
+    produceEquipment,
+    refetch: fetchAll, // ✅ Agora é uma função estável
   }
 }
