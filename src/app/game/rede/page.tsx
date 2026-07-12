@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRede } from '@/hooks/useRede'
 import { useWar } from '@/hooks/useWar'
 import { formatMoney, formatNumber, formatTime } from '@/utils/format'
@@ -46,56 +46,37 @@ export default function RedePage() {
       setTimeLeft(msLeft > 0 ? msLeft : 0)
     }
 
-    updateTimer() // Roda na primeira vez
-
+    updateTimer()
     const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
   }, [])
 
-  // ✅ CORREÇÃO: Prevenir loop infinito monitorando construções
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
+  // ✅ CORREÇÃO DEFINITIVA: Loops infinitos removidos
   useEffect(() => {
     if (buildings.length === 0) return
 
-    // Filtra apenas os que ainda não estão prontos
-    const inConstruction = buildings.filter(b => !b.is_built)
-    if (inConstruction.length === 0) return // Se não tem nenhum em construção, não faz nada
+    const now = Date.now()
+    let nextFinish = Infinity
 
-    const nextFinish = Math.min(
-      ...inConstruction.map(b => new Date(b.finished_at).getTime())
-    )
-
-    // Se já passou do tempo, apenas atualiza sem criar loop
-    if (!nextFinish || nextFinish <= Date.now()) {
-      // Evita chamar refetch se o timer ainda não foi limpo
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
+    // Procura o próximo edifício que vai ficar pronto
+    buildings.forEach(b => {
+      if (!b.is_built) {
+        const t = new Date(b.finished_at).getTime()
+        if (t < nextFinish) nextFinish = t
       }
-      // Dá um pequeno delay para não causar loop infinito
-      timerRef.current = setTimeout(() => {
-        refetchRede()
-        timerRef.current = null
-      }, 500)
-      return
-    }
+    })
 
-    // Se estiver no futuro, agenda um refetch para quando o próximo terminar
-    const delay = nextFinish - Date.now() + 1000
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
+    // Se não tiver nenhum em construção, para
+    if (nextFinish === Infinity) return
+
+    // Calcula o tempo restante e agenda UM ÚNICO refetch no futuro
+    const delay = Math.max(0, nextFinish - now + 1000)
+    const timeoutId = setTimeout(() => {
       refetchRede()
-      timerRef.current = null
     }, delay)
 
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [buildings, refetchRede]) // Ainda depende de refetch, mas o timerRef previne loops
+    return () => clearTimeout(timeoutId)
+  }, [refetchRede]) // ✅ Removeu buildings das dependências! O loop acaba aqui.
 
   const selectedCat = catalog.find(c => c.type === selectedType)
   const grouped = catalog.reduce((acc: Record<string,any[]>, c) => {
@@ -104,7 +85,6 @@ export default function RedePage() {
     return acc
   }, {})
 
-  // ─── FUNÇÕES DE CONSTRUÇÃO ──────────────────────────────
   async function handleBuild() {
     if (!selectedRegion || !selectedType) return
     setSub(true); setFeedback('')
@@ -113,7 +93,6 @@ export default function RedePage() {
     setSub(false)
   }
 
-  // ─── FUNÇÕES DE PRODUÇÃO DE EQUIPAMENTOS ────────────────
   async function handleProduce() {
     if (!prodUnit) return
     setProdSub(true); setProdFeedback('')
@@ -128,7 +107,7 @@ export default function RedePage() {
   return (
     <div className="flex flex-col gap-4 pb-24 px-4 pt-4">
 
-      {/* ─── CABEÇALHO COM TIMER DE PRODUÇÃO ─────────────────── */}
+      {/* CABEÇALHO COM TIMER DE PRODUÇÃO */}
       <div className="bg-surface-card rounded-xl p-4 border border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Factory size={20} className="text-primary-light" />
@@ -145,7 +124,7 @@ export default function RedePage() {
         </div>
       </div>
 
-      {/* ─── DASHBOARD DE PRODUÇÃO ATIVA ────────────────────── */}
+      {/* DASHBOARD DE PRODUÇÃO ATIVA */}
       <div>
         <p className="text-xs font-bold tracking-widest text-white/40 uppercase mb-2">📊 PRODUÇÃO ATIVA</p>
         <div className="bg-surface-card rounded-xl p-4 border border-white/5">
@@ -180,7 +159,7 @@ export default function RedePage() {
         </div>
       </div>
 
-      {/* ─── CONSTRUÇÃO DE EDIFÍCIOS ─────────────────────────── */}
+      {/* CONSTRUÇÃO DE EDIFÍCIOS */}
       <div className="bg-surface-card rounded-xl p-4 border border-white/5 flex flex-col gap-3">
         <div className="flex items-center gap-2 mb-1">
           <Hammer size={18} className="text-white/40" />
@@ -238,12 +217,12 @@ export default function RedePage() {
           )}
         </div>
 
-        {/* ─── EDIFÍCIOS EM CONSTRUÇÃO (COM BARRA DE PROGRESSO) ── */}
+        {/* EDIFÍCIOS EM CONSTRUÇÃO */}
         {buildings.filter(b => !b.is_built).length > 0 && (
           <div className="mt-2">
             <p className="text-xs font-semibold text-white/40 mb-1">🔨 Em construção</p>
             {buildings.filter(b => !b.is_built).map(b => {
-              const total = 30 * 60 * 1000 // 30 minutos em ms
+              const total = 30 * 60 * 1000
               const elapsed = Date.now() - new Date(b.started_at).getTime()
               const progress = Math.min(100, (elapsed / total) * 100)
               const remaining = Math.max(0, total - elapsed)
@@ -265,7 +244,7 @@ export default function RedePage() {
         )}
       </div>
 
-      {/* ─── PRODUÇÃO DE EQUIPAMENTOS MILITARES ──────────────── */}
+      {/* PRODUÇÃO DE EQUIPAMENTOS MILITARES */}
       <div className="bg-surface-card rounded-xl p-4 border border-white/5 flex flex-col gap-3">
         <div className="flex items-center gap-2 mb-1">
           <Package size={18} className="text-white/40" />
