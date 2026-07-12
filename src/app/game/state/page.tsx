@@ -240,7 +240,10 @@ export default function StatePage() {
   async function handlePropose() {
     if (!selectedLaw) return
     setProposing(true); setLawMsg('')
-    const res = await proposeLaw(Number(selectedLaw), targetCountryId)
+    
+    // ✅ CORREÇÃO: Passa o target como objeto { countryId: ... }
+    const res = await proposeLaw(Number(selectedLaw), { countryId: targetCountryId ?? undefined })
+    
     setLawMsg(res.message ?? res.error ?? 'Erro')
     setSelectedLaw('')
     setTargetCountryId(null)
