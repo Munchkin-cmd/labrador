@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRede } from '@/hooks/useRede'
 import { useWar } from '@/hooks/useWar'
 import { formatMoney, formatNumber, formatTime } from '@/utils/format'
@@ -51,7 +51,9 @@ export default function RedePage() {
     return () => clearInterval(interval)
   }, [])
 
-  // ✅ CORREÇÃO DEFINITIVA: Loops infinitos removidos
+  // ✅ CORREÇÃO FINAL: useRef para evitar timers duplicados
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     if (buildings.length === 0) return
 
@@ -66,17 +68,25 @@ export default function RedePage() {
       }
     })
 
-    // Se não tiver nenhum em construção, para
     if (nextFinish === Infinity) return
 
-    // Calcula o tempo restante e agenda UM ÚNICO refetch no futuro
     const delay = Math.max(0, nextFinish - now + 1000)
-    const timeoutId = setTimeout(() => {
+
+    // ✅ Se já existir um timer agendado, não cria outro
+    if (timerRef.current) return
+
+    timerRef.current = setTimeout(() => {
       refetchRede()
+      timerRef.current = null
     }, delay)
 
-    return () => clearTimeout(timeoutId)
-  }, [refetchRede]) // ✅ Removeu buildings das dependências! O loop acaba aqui.
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [refetchRede])
 
   const selectedCat = catalog.find(c => c.type === selectedType)
   const grouped = catalog.reduce((acc: Record<string,any[]>, c) => {

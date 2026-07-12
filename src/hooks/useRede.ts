@@ -73,5 +73,3 @@ export function useRede() {
     refetch: () => { fetchedRef.current = false; fetchAll() },
   }
 }
-
-
