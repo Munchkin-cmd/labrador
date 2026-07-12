@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
-import { useParliament } from '@/hooks/useParliament' // ✅ Importado
+import { useParliament } from '@/hooks/useParliament'
 import { Database } from '@/types/database'
 import { 
   ArrowLeft, Coins, Shield, Handshake, Swords, Ban,
@@ -67,7 +67,6 @@ export default function PaisPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // ✅ Hook do Parlamento para propor leis
   const { proposeLaw } = useParliament()
 
   const isMyCountry = myCountry?.id === country?.id
@@ -78,7 +77,6 @@ export default function PaisPage() {
       setLoading(true)
       setError('')
 
-      // 1. Buscar dados do país
       const { data: countryData, error: countryError } = await supabase
         .from('countries')
         .select('*')
@@ -93,7 +91,6 @@ export default function PaisPage() {
 
       setCountry(countryData)
 
-      // 2. Buscar dados do usuário
       const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -102,7 +99,6 @@ export default function PaisPage() {
 
       if (userData) setUserProfile(userData)
 
-      // 3. Buscar dados da economia
       const { data: econData } = await supabase
         .from('economy')
         .select('*')
@@ -111,7 +107,6 @@ export default function PaisPage() {
 
       if (econData) setEconomy(econData)
 
-      // 4. Buscar regiões do país
       if (countryData.id) {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
@@ -139,7 +134,6 @@ export default function PaisPage() {
         }
       }
 
-      // 5. Buscar relação diplomática
       if (user && myCountry?.id && countryData.id !== myCountry.id) {
         const { data: relData } = await supabase
           .from('diplomacy')
@@ -180,7 +174,6 @@ export default function PaisPage() {
 
   // ─── AÇÕES DIPLOMÁTICAS ────────────────────────────────────
 
-  // Aliança / Neutro
   async function handleDiplomaticAction(action: 'ally' | 'neutral') {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -210,7 +203,7 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // ✅ Declarar Guerra (Agora propõe uma lei para o parlamento)
+  // ✅ Declarar Guerra (Corrigido: objeto)
   async function handleDeclareWar() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -222,8 +215,7 @@ export default function PaisPage() {
     setError('')
     setSuccess('')
 
-    // Propor lei de guerra (ID 8) com o país alvo
-    const res = await proposeLaw(8, country.id)
+    const res = await proposeLaw(8, { countryId: country.id })
 
     if (res.success) {
       setSuccess('⚔️ Lei de Guerra enviada ao parlamento! Aguarde a votação.')
@@ -233,7 +225,7 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // ✅ Aplicar/Remover Sanções (Agora usa parlamento para aplicar)
+  // ✅ Aplicar/Remover Sanções (Corrigido: objeto)
   async function handleSanctions() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -244,7 +236,6 @@ export default function PaisPage() {
     setSuccess('')
 
     if (isCurrentlySanctioned) {
-      // Se já estiver sancionado, remover é uma ação unilateral (não precisa de lei)
       const { error } = await supabase
         .from('diplomacy')
         .upsert({
@@ -262,8 +253,7 @@ export default function PaisPage() {
       setSuccess('✅ Sanções removidas')
       setRelation(prev => prev ? { ...prev, is_sanctioned: false, status: 'neutral' } : null)
     } else {
-      // Propor lei de sanções (ID 10) com o país alvo
-      const res = await proposeLaw(10, country.id)
+      const res = await proposeLaw(10, { countryId: country.id })
       if (res.success) {
         setSuccess('🚫 Lei de Sanções enviada ao parlamento! Aguarde a votação.')
       } else {
@@ -274,7 +264,6 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Construir/Destruir Embaixada (Ação unilateral, sem parlamento)
   async function handleEmbassy() {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -320,7 +309,6 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Enviar Dinheiro
   async function handleSendMoney(amount: number) {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
@@ -358,7 +346,6 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Enviar Mensagem Diplomática
   async function handleSendMessage() {
     if (!selectedMessage) {
       setError('Selecione uma mensagem')
@@ -389,7 +376,6 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
-  // Enviar Tratado
   async function handleSendTreaty() {
     if (!selectedTreaty) {
       setError('Selecione um tratado')
@@ -438,7 +424,6 @@ export default function PaisPage() {
     )
   }
 
-  // ─── PAÍS NÃO ENCONTRADO ─────────────────────────────────
   if (error || !country) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
@@ -451,10 +436,8 @@ export default function PaisPage() {
     )
   }
 
-  // ─── RENDER ───────────────────────────────────────────────
   return (
     <div className="max-w-4xl mx-auto pb-24 px-4">
-      {/* Botão voltar */}
       <div className="flex items-center gap-4 mb-4 pt-4">
         <button
           onClick={() => router.back()}
@@ -465,7 +448,6 @@ export default function PaisPage() {
         <h1 className="text-xl font-bold text-white">Perfil do País</h1>
       </div>
 
-      {/* Banner */}
       <div className="relative w-full h-48 rounded-xl overflow-hidden bg-gradient-to-r from-primary/30 to-primary/5 border border-white/10">
         {userProfile?.banner_urls?.[0] ? (
           <img
@@ -480,12 +462,9 @@ export default function PaisPage() {
         )}
       </div>
 
-      {/* ─── PERFIL ──────────────────────────────────────────── */}
       <div className="relative px-4">
-        {/* Avatar + Info */}
         <div className="relative -mt-16 flex items-end gap-4">
           
-          {/* Círculo da Bandeira */}
           <div className="relative flex-shrink-0">
             <div className="w-20 h-20 rounded-full border-4 border-primary shadow-lg shadow-primary/20 overflow-hidden bg-black/80">
               {userProfile?.flag_url ? (
@@ -502,7 +481,6 @@ export default function PaisPage() {
             </div>
           </div>
 
-          {/* Círculo da Foto do Líder */}
           <div className="relative flex-shrink-0 -ml-4">
             <div className="w-20 h-20 rounded-full border-4 border-white/20 shadow-lg overflow-hidden bg-black/80">
               {userProfile?.leader_url ? (
@@ -519,7 +497,6 @@ export default function PaisPage() {
             </div>
           </div>
 
-          {/* Nome Centralizado */}
           <div className="flex-1 text-center pb-4">
             <h2 className="text-2xl font-bold text-white">{country.name}</h2>
             {!country.is_active && (
@@ -530,7 +507,6 @@ export default function PaisPage() {
         </div>
       </div>
 
-      {/* ─── BOTÕES DE AÇÃO ──────────────────────────────────── */}
       {user && !isMyCountry && (
         <div className="mt-2 px-4 flex flex-wrap justify-center gap-2">
           <button
@@ -597,7 +573,6 @@ export default function PaisPage() {
         </div>
       )}
 
-      {/* ─── STATUS ATUAL ────────────────────────────────────── */}
       {relation && (
         <div className="mt-4 px-4 flex justify-center">
           <div className="flex flex-wrap gap-2 justify-center">
@@ -627,7 +602,6 @@ export default function PaisPage() {
         </div>
       )}
 
-      {/* ─── ERRO / SUCESSO ──────────────────────────────────── */}
       {error && (
         <div className="mt-4 px-4">
           <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-xl">{error}</p>
@@ -639,7 +613,6 @@ export default function PaisPage() {
         </div>
       )}
 
-      {/* ─── GUERRAS VENCIDAS/PERDIDAS ───────────────────────── */}
       <div className="mt-6 px-4">
         <div className="bg-surface-card rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 mb-3 text-white/40 text-xs font-bold tracking-widest uppercase">
@@ -658,7 +631,6 @@ export default function PaisPage() {
         </div>
       </div>
 
-      {/* ─── RECURSOS DO ARMAZÉM ────────────────────────────── */}
       <div className="mt-6 px-4">
         <div className="bg-surface-card rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 mb-3 text-white/40 text-xs font-bold tracking-widest uppercase">
@@ -709,7 +681,6 @@ export default function PaisPage() {
         </div>
       </div>
 
-      {/* ─── TABELA DE REGIÕES ────────────────────────────────── */}
       <div className="mt-6 px-4">
         <div className="bg-surface-card rounded-xl p-4 border border-white/5">
           <div className="flex items-center gap-2 mb-3 text-white/40 text-xs font-bold tracking-widest uppercase">
@@ -743,7 +714,6 @@ export default function PaisPage() {
         </div>
       </div>
 
-      {/* ─── INFORMAÇÕES ────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 px-4">
         <div className="bg-[#1a1a1a] border border-white/5 rounded-xl p-4">
           <h3 className="text-white/60 text-xs font-bold tracking-widest uppercase mb-3">📋 INFORMAÇÕES</h3>
@@ -802,7 +772,6 @@ export default function PaisPage() {
         </div>
       </div>
 
-      {/* ─── LEMA ────────────────────────────────────────────── */}
       {country.motto && (
         <div className="mt-4 px-4 bg-[#1a1a1a] border border-white/5 rounded-xl p-4 text-center">
           <p className="text-white/40 text-xs font-bold tracking-widest uppercase mb-1">LEMA NACIONAL</p>
@@ -810,7 +779,6 @@ export default function PaisPage() {
         </div>
       )}
 
-      {/* ─── MODAL DE TRATADO ───────────────────────────────── */}
       {showTreatyModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 max-w-md w-full">
@@ -860,7 +828,6 @@ export default function PaisPage() {
         </div>
       )}
 
-      {/* ─── MODAL DE MENSAGEM DIPLOMÁTICA ────────────────────── */}
       {showMessageModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#1a1a1a] border border-white/10 rounded-xl p-6 max-w-md w-full">
