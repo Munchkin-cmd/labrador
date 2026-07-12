@@ -154,29 +154,42 @@ export function useTaxes() {
   async function saveTaxes(updated: any) {
     setSaving(true)
 
-    // ✅ 1. Salva os novos impostos na tabela taxes
-    const { error: taxError } = await supabase.from('taxes')
-      .update({ ...updated, last_updated: new Date().toISOString() })
-      .eq('country_id', country!.id)
-
-    if (taxError) {
-      setSaving(false)
-      return { success: false }
+    // ✅ 1. Garante que os valores são números e formata o objeto de update
+    const updateData = {
+      income_tax: Number(updated.income_tax) || 0,
+      corporate_tax: Number(updated.corporate_tax) || 0,
+      property_tax: Number(updated.property_tax) || 0,
+      manufacturing_tax: Number(updated.manufacturing_tax) || 0,
+      vat: Number(updated.vat) || 0,
+      customs: Number(updated.customs) || 0,
+      last_updated: new Date().toISOString(),
     }
 
-    // 2. Calcula a carga tributária média
+    // ✅ 2. Executa o update com o country_id convertido para número (garantido)
+    const { error: taxError } = await supabase
+      .from('taxes')
+      .update(updateData)
+      .eq('country_id', Number(country!.id))
+
+    if (taxError) {
+      console.error('❌ Erro no Supabase:', taxError)
+      setSaving(false)
+      return { success: false, error: taxError.message }
+    }
+
+    // 3. Calcula a carga tributária média
     const taxFields = ['income_tax', 'corporate_tax', 'property_tax', 'manufacturing_tax', 'vat', 'customs']
     const totalTax = taxFields.reduce((sum, key) => sum + (Number(updated[key] ?? 0)), 0)
     const avgTax = totalTax / taxFields.length
 
-    // 3. Aplica penalidades de confiança e aprovação
+    // 4. Aplica penalidades de confiança e aprovação
     const trustPenalty = avgTax > 40 ? (avgTax - 40) * 0.5 : 0
     const approvalPenalty = avgTax > 50 ? (avgTax - 50) * 0.5 : 0
 
     const { data: currentCountry } = await supabase
       .from('countries')
       .select('trust, intl_approval')
-      .eq('id', country!.id)
+      .eq('id', Number(country!.id))
       .single()
 
     if (currentCountry) {
@@ -186,10 +199,10 @@ export function useTaxes() {
       await supabase
         .from('countries')
         .update({ trust: newTrust, intl_approval: newApproval })
-        .eq('id', country!.id)
+        .eq('id', Number(country!.id))
     }
 
-    setTaxes((prev: any) => ({ ...prev, ...updated }))
+    setTaxes((prev: any) => ({ ...prev, ...updateData }))
     setSaving(false)
     return { success: true }
   }

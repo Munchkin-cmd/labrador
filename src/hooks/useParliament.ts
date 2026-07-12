@@ -1,4 +1,3 @@
-// src/hooks/useParliament.ts
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
@@ -27,6 +26,9 @@ export interface Law {
   voting_deadline: string | null
   forced_approval: boolean
   created_at: string
+  target_id?: number | null        // ID do país ou região alvo
+  target_type?: string | null      // 'country', 'region', 'text'
+  target_text?: string | null      // Para mudar nome do país
   law_catalog: {
     name: string
     description: string
@@ -54,7 +56,6 @@ export function useParliament() {
     if (!country?.id) return
     fetchAll()
 
-    // Realtime: atualiza quando lei muda
     const channel = supabase
       .channel('parliament_laws')
       .on('postgres_changes',
@@ -70,7 +71,6 @@ export function useParliament() {
     return () => { supabase.removeChannel(channel) }
   }, [country?.id])
 
-  // Countdown para leis pendentes
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now()
@@ -102,6 +102,7 @@ export function useParliament() {
         .select(`
           id, country_id, law_catalog_id, votes_for, votes_against,
           status, approved_at, revoked_at, voting_deadline, forced_approval, created_at,
+          target_id, target_type, target_text,
           law_catalog(name, description, political_power_cost)
         `)
         .eq('country_id', country.id)
@@ -120,17 +121,22 @@ export function useParliament() {
     setLoading(false)
   }
 
-  // ✅ Propor lei via RPC com suporte a alvo
   async function proposeLaw(
     lawCatalogId: number,
-    targetId?: number | null
+    target?: {
+      countryId?: number
+      regionId?: string
+      text?: string
+    }
   ): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!country?.id) return { success: false, error: 'País não encontrado' }
 
     const { data, error } = await supabase.rpc('propose_law', {
       p_country_id:     country.id,
       p_law_catalog_id: lawCatalogId,
-      p_target_id:      targetId || null, // ✅ Passa o alvo para a RPC
+      p_target_id:      target?.countryId || target?.regionId || null,
+      p_target_type:    target?.countryId ? 'country' : target?.regionId ? 'region' : target?.text ? 'text' : null,
+      p_target_text:    target?.text || null,
     })
 
     if (error) return { success: false, error: error.message }
@@ -138,43 +144,37 @@ export function useParliament() {
     return data as { success: boolean; message?: string; error?: string }
   }
 
-  // Forçar aprovação de lei rejeitada (gasta 50 poder político)
   async function forceLaw(lawId: string): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!country?.id) return { success: false, error: 'País não encontrado' }
-
     const { data, error } = await supabase.rpc('force_law_approval', {
       p_country_id: country.id,
       p_law_id:     lawId,
     })
-
     if (error) return { success: false, error: error.message }
     await fetchAll()
     return data as { success: boolean; message?: string; error?: string }
   }
 
-  // Calcular próxima eleição
   function nextElectionIn(): string {
     if (!parliament) return '—'
     const last = new Date(parliament.last_election_at).getTime()
-    const next = last + (12 * 60 * 60 * 1000) // 12 horas
+    const next = last + (12 * 60 * 60 * 1000)
     const diff = Math.max(0, next - Date.now())
-    const h    = Math.floor(diff / 3600000)
-    const m    = Math.floor((diff % 3600000) / 60000)
+    const h = Math.floor(diff / 3600000)
+    const m = Math.floor((diff % 3600000) / 60000)
     return `${h}h ${m}m`
   }
 
-  // Calcular próxima eleição aleatória
   function nextRandomIn(): string {
     if (!parliament) return '—'
     const last = new Date(parliament.last_random_at).getTime()
-    const next = last + (48 * 60 * 60 * 1000) // 48 horas
+    const next = last + (48 * 60 * 60 * 1000)
     const diff = Math.max(0, next - Date.now())
-    const h    = Math.floor(diff / 3600000)
-    const m    = Math.floor((diff % 3600000) / 60000)
+    const h = Math.floor(diff / 3600000)
+    const m = Math.floor((diff % 3600000) / 60000)
     return `${h}h ${m}m`
   }
 
-  // Formatar countdown de votação
   function formatCountdown(lawId: string): string {
     const ms = countdown[lawId]
     if (ms === undefined) return '—'

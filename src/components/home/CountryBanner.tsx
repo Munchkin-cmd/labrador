@@ -9,24 +9,25 @@ interface Props {
 }
 
 export default function CountryBanner({ country, profile }: Props) {
-  // ✅ CORREÇÃO: Usa a bandeira do país (country.flag_url) em vez do primeiro banner
-  const bannerUrl = country.flag_url ?? null
+  // ✅ FUNDO DA HOME: Usa a bandeira do país (profile.flag_url)
+  const backgroundImage = profile.flag_url ?? null
 
   return (
     <div className="relative w-full h-40 bg-gradient-to-br from-primary-dark to-secondary-dark overflow-hidden">
-      {/* Banner background */}
-      {bannerUrl ? (
-        <Image src={bannerUrl} alt="Bandeira" fill className="object-cover opacity-60" />
+      {/* Fundo: Bandeira */}
+      {backgroundImage ? (
+        <Image src={backgroundImage} alt="Bandeira" fill className="object-cover" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-secondary/60" />
       )}
 
-      {/* Overlay escuro */}
+      {/* Overlay escuro para dar contraste ao texto */}
       <div className="absolute inset-0 bg-black/30" />
 
-      {/* Content */}
+      {/* Conteúdo */}
       <div className="absolute inset-0 flex items-end p-4 gap-3">
-        {/* Foto líder */}
+        
+        {/* ✅ MOLDURA CIRCULAR: Foto do Líder */}
         <div className="w-14 h-14 rounded-full border-2 border-white/30 overflow-hidden bg-white/10 flex-shrink-0">
           {profile.leader_url ? (
             <Image src={profile.leader_url} alt="Líder" width={56} height={56} className="object-cover w-full h-full" />
@@ -35,13 +36,11 @@ export default function CountryBanner({ country, profile }: Props) {
           )}
         </div>
 
-        {/* Info */}
+        {/* Informações do país */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-2xl">{country.flag_emoji}</span>
-            <h2 className="text-white font-black text-lg leading-tight truncate">
-              {country.name}
-            </h2>
+            <h2 className="text-white font-black text-lg leading-tight truncate">{country.name}</h2>
           </div>
           {country.motto && (
             <p className="text-white/60 text-xs italic truncate mt-0.5">"{country.motto}"</p>
