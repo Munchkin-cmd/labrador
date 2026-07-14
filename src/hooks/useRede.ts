@@ -1,19 +1,19 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 
 type RpcResult = { success: boolean; message?: string; error?: string }
 
 export function useRede() {
-  const countryId = useAuthStore(state => state.country?.id) // ✅ Pega só o ID, não o objeto inteiro
+  const countryId = useAuthStore(state => state.country?.id)
   const [loading, setLoading]     = useState(true)
   const [regions, setRegions]     = useState<any[]>([])
   const [buildings, setBuildings] = useState<any[]>([])
   const [catalog, setCatalog]     = useState<any[]>([])
   const [economy, setEconomy]     = useState<any>(null)
-  const fetchedRef = useRef(false) // ✅ Evita dupla chamada no StrictMode
+  const fetchedRef = useRef(false)
 
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     if (!countryId) return
     setLoading(true)
 
@@ -31,14 +31,14 @@ export function useRede() {
     setCatalog(c.data ?? [])
     setEconomy(e.data)
     setLoading(false)
-  }
+  }, [countryId])
 
   useEffect(() => {
     if (!countryId) return
-    if (fetchedRef.current) return // ✅ Não busca duas vezes
+    if (fetchedRef.current) return
     fetchedRef.current = true
     fetchAll()
-  }, [countryId]) // ✅ Depende só do ID primitivo, não do objeto
+  }, [countryId, fetchAll])
 
   async function build(regionId: string, buildingType: string, quantity: number): Promise<RpcResult> {
     if (!countryId) return { success: false, error: 'País não encontrado' }
@@ -49,7 +49,7 @@ export function useRede() {
       p_quantity:      quantity,
     })
     if (error) return { success: false, error: error.message }
-    fetchedRef.current = false // ✅ Permite refetch após ação
+    fetchedRef.current = false
     await fetchAll()
     return (data as RpcResult) ?? { success: false, error: 'Erro desconhecido' }
   }
@@ -67,9 +67,15 @@ export function useRede() {
     return (data as RpcResult) ?? { success: false, error: 'Erro desconhecido' }
   }
 
+  // ✅ AGORA MEMORIZADO: refetch não muda a cada renderização
+  const refetch = useCallback(() => {
+    fetchedRef.current = false
+    fetchAll()
+  }, [fetchAll])
+
   return {
     regions, buildings, catalog, economy, loading,
     build, produceEquipment,
-    refetch: () => { fetchedRef.current = false; fetchAll() },
+    refetch,
   }
 }

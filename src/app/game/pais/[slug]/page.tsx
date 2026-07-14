@@ -309,40 +309,27 @@ export default function PaisPage() {
     setTimeout(() => setSuccess(''), 4000)
   }
 
+  // ✅ CORRIGIDO: Usa a RPC transfer_money (ignora RLS com SECURITY DEFINER)
   async function handleSendMoney(amount: number) {
     if (!user || !myCountry || !country) return
     if (isMyCountry) return
 
-    const { data: fromEcon } = await supabase
-      .from('economy')
-      .select('money')
-      .eq('country_id', myCountry.id)
-      .single()
+    setError('')
+    setSuccess('')
 
-    if (!fromEcon || fromEcon.money < amount) {
-      setError('❌ Dinheiro insuficiente')
+    const { data, error } = await supabase
+      .rpc('transfer_money', {
+        p_from: myCountry.id,
+        p_to: country.id,
+        p_amount: amount,
+      }) as { data: { success: boolean; message?: string; error?: string } | null; error: any }
+
+    if (error || !data?.success) {
+      setError(data?.error || error?.message || 'Erro ao transferir dinheiro')
       return
     }
 
-    await supabase
-      .from('economy')
-      .update({ money: fromEcon.money - amount })
-      .eq('country_id', myCountry.id)
-
-    const { data: toEcon } = await supabase
-      .from('economy')
-      .select('money')
-      .eq('country_id', country.id)
-      .single()
-
-    if (toEcon) {
-      await supabase
-        .from('economy')
-        .update({ money: toEcon.money + amount })
-        .eq('country_id', country.id)
-    }
-
-    setSuccess(`✅ R$ ${amount.toLocaleString()} enviado com sucesso!`)
+    setSuccess(data?.message || '✅ Dinheiro enviado com sucesso!')
     setTimeout(() => setSuccess(''), 4000)
   }
 
@@ -890,5 +877,3 @@ export default function PaisPage() {
     </div>
   )
 }
-
-
