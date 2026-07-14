@@ -28,9 +28,18 @@ export default function TaxPage() {
 
   async function handleSave() {
     setFeedback('')
+    
+    // Chama o hook corrigido
     const res = await saveTaxes(values)
-    setFeedback(res.success ? '✅ Alterações salvas!' : '❌ Erro ao salvar')
-    setTimeout(() => setFeedback(''), 3000)
+    
+    if (res?.success) {
+      setFeedback('✅ Alterações salvas com sucesso!')
+    } else {
+      setFeedback(`❌ Erro: ${res?.error || 'Falha desconhecida ao salvar'}`)
+    }
+    
+    // Limpa a mensagem após 4 segundos
+    setTimeout(() => setFeedback(''), 4000)
   }
 
   if (loading) return <Loading />
@@ -92,7 +101,7 @@ export default function TaxPage() {
       </div>
 
       {feedback && (
-        <p className={`text-sm text-center ${feedback.includes('salvas') ? 'text-green-400' : 'text-red-400'}`}>
+        <p className={`text-sm text-center ${feedback.includes('✅') ? 'text-green-400' : 'text-red-400'}`}>
           {feedback}
         </p>
       )}

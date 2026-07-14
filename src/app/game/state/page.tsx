@@ -241,8 +241,8 @@ export default function StatePage() {
     if (!selectedLaw) return
     setProposing(true); setLawMsg('')
     
-    // ✅ CORREÇÃO: Passa o target como objeto { countryId: ... }
-    const res = await proposeLaw(Number(selectedLaw), { countryId: targetCountryId ?? undefined })
+    // ✅ CORREÇÃO: Passa o ID como objeto { countryId }
+    const res = await proposeLaw(Number(selectedLaw), { countryId: targetCountryId || undefined })
     
     setLawMsg(res.message ?? res.error ?? 'Erro')
     setSelectedLaw('')
@@ -466,9 +466,13 @@ export default function StatePage() {
               </span>
             </div>
             <div style={{ marginTop: 4 }}>
-              <span className={`badge ${has_majority ? 'badge-green' : 'badge-red'}`}>
-                {has_majority ? '✅ Maioria Coalizão' : '⚠️ Maioria Oposição'}
-              </span>
+              {parliament.coalition_seats > parliament.opposition_seats ? (
+                <span className="badge badge-green">✅ Maioria Coalizão</span>
+              ) : parliament.opposition_seats > parliament.coalition_seats ? (
+                <span className="badge badge-red">⚠️ Maioria Oposição</span>
+              ) : (
+                <span className="badge badge-yellow">⚖️ Parlamento Dividido (Empate)</span>
+              )}
             </div>
           </div>
         </div>
@@ -524,7 +528,6 @@ export default function StatePage() {
               className="input-field"
             >
               <option value="">Escolha um país...</option>
-              {/* Aqui você deve preencher com a lista de países. Exemplo: */}
               <option value={1}>Africa Austral</option>
               <option value={14}>Brasil</option>
             </select>
@@ -568,7 +571,6 @@ export default function StatePage() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  {/* ✅ CRONÔMETRO CORRIGIDO */}
                   <span className="badge badge-yellow">⏱️ {getCountdown(law.id)}</span>
                 </div>
               </div>
