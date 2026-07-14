@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import { useTaxes } from '@/hooks/useMenu'
 
-// ✅ Nomes CORRIGIDOS com base na imagem do seu banco de dados
-const TAX_FIELDS = [
+// ✅ Definindo o tipo das chaves para evitar o erro de índice
+type TaxKey = 'income_tax' | 'corporate_tax' | 'property_tax' | 'manufacturing_tax' | 'vat' | 'customs'
+
+const TAX_FIELDS: { key: TaxKey; label: string; desc: string }[] = [
   { key: 'income_tax',        label: 'Imposto de Renda',         desc: 'Incide sobre salários e rendimentos pessoais' },
   { key: 'corporate_tax',     label: 'Imposto Corporativo',       desc: 'Incide sobre lucro das empresas' },
   { key: 'property_tax',      label: 'Imposto de Propriedade',    desc: 'Incide sobre imóveis e terras' },
@@ -15,30 +18,42 @@ const TAX_FIELDS = [
 
 export default function TaxPage() {
   const { taxes, loading, saving, saveTaxes } = useTaxes()
-  const [values, setValues] = useState<Record<string, number>>({})
+  const [values, setValues] = useState<Record<TaxKey, number>>({} as Record<TaxKey, number>)
   const [feedback, setFeedback] = useState('')
 
   useEffect(() => {
     if (taxes) {
-      const v: Record<string, number> = {}
-      TAX_FIELDS.forEach(f => { v[f.key] = Number(taxes[f.key] ?? 0) })
+      const v: Record<TaxKey, number> = {} as Record<TaxKey, number>
+      TAX_FIELDS.forEach(f => { 
+        v[f.key] = Number(taxes[f.key] ?? 0) // ✅ TypeScript agora sabe que f.key é uma chave válida
+      })
       setValues(v)
     }
   }, [taxes])
 
   async function handleSave() {
     setFeedback('')
-    
-    // Chama o hook corrigido
     const res = await saveTaxes(values)
     
     if (res?.success) {
+      // Recupera os dados atualizados do Supabase para atualizar os sliders
+      const { data } = await supabase
+        .from('taxes')
+        .select('*')
+        .eq('country_id', taxes?.country_id)
+        .single()
+      
+      if (data) {
+        const v: Record<TaxKey, number> = {} as Record<TaxKey, number>
+        TAX_FIELDS.forEach(f => { 
+          v[f.key] = Number(data[f.key] ?? 0) 
+        })
+        setValues(v) // Atualiza os sliders!
+      }
       setFeedback('✅ Alterações salvas com sucesso!')
     } else {
-      setFeedback(`❌ Erro: ${res?.error || 'Falha desconhecida ao salvar'}`)
+      setFeedback(`❌ Erro: ${res?.error || 'Falha desconhecida'}`)
     }
-    
-    // Limpa a mensagem após 4 segundos
     setTimeout(() => setFeedback(''), 4000)
   }
 
@@ -87,7 +102,6 @@ export default function TaxPage() {
               <label className="text-white text-sm font-semibold">{field.label}</label>
               <span className="text-primary-light font-black text-base">{values[field.key]?.toFixed(1)}%</span>
             </div>
-            {/* ✅ Slider com limite máximo de 60% por taxa */}
             <input
               type="range"
               min={0} max={60} step={0.5}

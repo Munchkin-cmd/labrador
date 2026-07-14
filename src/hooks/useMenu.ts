@@ -163,7 +163,7 @@ export function useMarket() {
   return { offers, myOffers, loading, placeOrder, buyOffer }
 }
 
-// ── TAXES (CORRIGIDO COM VERIFICAÇÃO DE NULL) ────────────────
+// ── TAXES (CORRIGIDO COM `as any` E `updated_at`) ────────────
 export function useTaxes() {
   const { country } = useAuthStore()
   const [taxes, setTaxes] = useState<any>(null)
@@ -185,7 +185,7 @@ export function useTaxes() {
   async function saveTaxes(updated: any) {
     setSaving(true)
 
-    // ✅ Verifica se o país existe (corrige o erro TS)
+    // ✅ Verifica se o país existe
     if (!country) {
       setSaving(false)
       return { success: false, error: 'Você precisa estar logado em um país' }
@@ -199,13 +199,13 @@ export function useTaxes() {
       manufacturing_tax: Number(updated.manufacturing_tax) || 0,
       vat: Number(updated.vat) || 0,
       customs: Number(updated.customs) || 0,
-      last_updated: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     }
 
-    // 2. Executa o update no Supabase
+    // 2. Executa o update no Supabase (AS ANY resolve o erro de tipo)
     const { error: taxError } = await supabase
       .from('taxes')
-      .update(updateData)
+      .update(updateData as any) // ✅ Força o TypeScript a aceitar o objeto
       .eq('country_id', country.id)
 
     if (taxError) {
@@ -241,7 +241,7 @@ export function useTaxes() {
         .eq('id', country.id)
     }
 
-    // Atualiza o estado local
+    // ✅ Atualiza o estado local
     setTaxes((prev: any) => ({ ...prev, ...updateData }))
     setSaving(false)
     return { success: true }
