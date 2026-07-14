@@ -11,7 +11,7 @@ export interface Article {
   image_url: string | null
   video_url: string | null
   file_url: string | null
-  media_type: string | null // ✅ Corrigido para string | null (bate com o database.ts)
+  media_type: string | null
   likes: number
   dislikes: number
   created_at: string
@@ -65,7 +65,6 @@ export function useFeed() {
         .eq('user_id', user.id)
         .in('article_id', ids)
       
-      // ✅ CORREÇÃO DE TIPO AQUI
       votes?.forEach(v => { votedMap[v.article_id] = v.vote as 1 | -1; })
     }
 
@@ -130,6 +129,73 @@ export function useFeed() {
     return { success: !error, error: error?.message }
   }
 
+  // ✅ NOVO: Editar artigo (só o dono pode)
+  async function updateArticle(
+    articleId: string,
+    title: string,
+    content: string,
+    category: string,
+    mediaData?: {
+      image_url?: string | null
+      video_url?: string | null
+      file_url?: string | null
+      media_type?: string | null
+    }
+  ) {
+    if (!country?.id) return { success: false, error: 'Você precisa estar logado em um país' }
+
+    // Verifica se o país é o dono do artigo
+    const { data: check, error: checkError } = await supabase
+      .from('articles')
+      .select('country_id')
+      .eq('id', articleId)
+      .single()
+
+    if (checkError || check?.country_id !== country.id) {
+      return { success: false, error: 'Você só pode editar seus próprios artigos' }
+    }
+
+    const { error } = await supabase
+      .from('articles')
+      .update({
+        title,
+        content,
+        category,
+        image_url: mediaData?.image_url || null,
+        video_url: mediaData?.video_url || null,
+        file_url: mediaData?.file_url || null,
+        media_type: mediaData?.media_type || null,
+      })
+      .eq('id', articleId)
+
+    if (!error) fetchArticles(true)
+    return { success: !error, error: error?.message }
+  }
+
+  // ✅ NOVO: Deletar artigo (só o dono pode)
+  async function deleteArticle(articleId: string) {
+    if (!country?.id) return { success: false, error: 'Você precisa estar logado em um país' }
+
+    // Verifica se o país é o dono do artigo
+    const { data: check, error: checkError } = await supabase
+      .from('articles')
+      .select('country_id')
+      .eq('id', articleId)
+      .single()
+
+    if (checkError || check?.country_id !== country.id) {
+      return { success: false, error: 'Você só pode deletar seus próprios artigos' }
+    }
+
+    const { error } = await supabase
+      .from('articles')
+      .delete()
+      .eq('id', articleId)
+
+    if (!error) fetchArticles(true)
+    return { success: !error, error: error?.message }
+  }
+
   async function fetchComments(articleId: string): Promise<Comment[]> {
     const { data } = await supabase
       .from('comments')
@@ -152,6 +218,11 @@ export function useFeed() {
   return {
     articles, loading, hasMore,
     loadMore: () => fetchArticles(false),
-    voteArticle, publishArticle, fetchComments, postComment,
+    voteArticle,
+    publishArticle,
+    updateArticle,   // ✅ Expondo a função de editar
+    deleteArticle,   // ✅ Expondo a função de deletar
+    fetchComments,
+    postComment,
   }
 }
