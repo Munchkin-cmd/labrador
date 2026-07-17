@@ -52,39 +52,32 @@ export default function WarPage() {
           myWars.map(war => (
             <div key={war.id} className="bg-[#2a2a2a] rounded-xl p-4 border border-white/5">
               
-              {/* Topo: Atacante vs Defensor */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex flex-col items-center w-1/3">
                   <div className="w-16 h-16 rounded-full bg-black/40 border border-white/10 overflow-hidden flex items-center justify-center mb-1">
-                    {(war.attacker as any)?.flag_url ? (
-                      <img 
-                        src={(war.attacker as any).flag_url} 
-                        alt={(war.attacker as any)?.name || 'Atacante'} 
-                        className="w-full h-full object-cover"
-                      />
+                    {war.attacker?.flag_emoji ? (
+                      <span className="text-4xl">{war.attacker.flag_emoji}</span>
                     ) : (
-                      <span className="text-4xl">{(war.attacker as any)?.flag_emoji || '⚔️'}</span>
+                      <span className="text-4xl">⚔️</span>
                     )}
                   </div>
                   <p className="text-white font-bold text-sm text-center leading-tight">
                     <Link 
-                      href={`/game/pais/${(war.attacker as any)?.slug || ''}`}
+                      href={`/game/pais/${war.attacker?.name?.toLowerCase().replace(/\s/g, '-') || ''}`}
                       className="hover:text-primary-light transition-colors"
                     >
-                      {(war.attacker as any)?.name || 'Atacante'}
+                      {war.attacker?.name || 'Atacante'}
                     </Link>
                   </p>
                   <p className="text-white/30 text-[10px]">Danos: 0</p>
                 </div>
 
-                {/* Centro: Dano + Barra + Botão */}
                 <div className="flex flex-col items-center flex-1 px-2">
                   <p className="text-white/40 text-[10px] uppercase mb-1">Danos:</p>
                   <p className="text-white font-bold text-lg tracking-tight">
-                    830.200.000
+                    {formatNumber(830200000)}
                   </p>
                   
-                  {/* Barra de dano */}
                   <div className="w-full h-1.5 bg-white/10 rounded-full mt-1 mb-2">
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: '35%' }} />
                   </div>
@@ -102,25 +95,20 @@ export default function WarPage() {
                   </p>
                 </div>
 
-                {/* Direita: Defensor */}
                 <div className="flex flex-col items-center w-1/3">
                   <div className="w-16 h-16 rounded-full bg-black/40 border border-white/10 overflow-hidden flex items-center justify-center mb-1">
-                    {(war.defender as any)?.flag_url ? (
-                      <img 
-                        src={(war.defender as any).flag_url} 
-                        alt={(war.defender as any)?.name || 'Defensor'} 
-                        className="w-full h-full object-cover"
-                      />
+                    {war.defender?.flag_emoji ? (
+                      <span className="text-4xl">{war.defender.flag_emoji}</span>
                     ) : (
-                      <span className="text-4xl">{(war.defender as any)?.flag_emoji || '🛡️'}</span>
+                      <span className="text-4xl">🛡️</span>
                     )}
                   </div>
                   <p className="text-white font-bold text-sm text-center leading-tight">
                     <Link 
-                      href={`/game/pais/${(war.defender as any)?.slug || ''}`}
+                      href={`/game/pais/${war.defender?.name?.toLowerCase().replace(/\s/g, '-') || ''}`}
                       className="hover:text-primary-light transition-colors"
                     >
-                      {(war.defender as any)?.name || 'Defensor'}
+                      {war.defender?.name || 'Defensor'}
                     </Link>
                   </p>
                   <p className="text-white/30 text-[10px]">Danos: {formatNumber(830200000)}</p>
@@ -132,7 +120,6 @@ export default function WarPage() {
         )}
       </div>
 
-      {/* ─── BOTÃO DE REDIRECIONAMENTO PARA TREINAMENTO ──────── */}
       <div className="px-4 mb-4">
         <Link
           href="/game/treinamento"
@@ -142,7 +129,6 @@ export default function WarPage() {
         </Link>
       </div>
 
-      {/* ─── GUERRAS DO MUNDO ─────────────────────────────────── */}
       <div className="px-4 pb-24">
         <p className="text-white/30 text-sm mb-3">
           Todas as guerras do mundo ({worldWars.length})
@@ -154,22 +140,18 @@ export default function WarPage() {
               
               <div className="flex flex-col items-center w-16 flex-shrink-0">
                 <div className="w-10 h-10 rounded-full bg-black/40 border border-white/10 overflow-hidden flex items-center justify-center mb-1">
-                  {(war.attacker as any)?.flag_url ? (
-                    <img 
-                      src={(war.attacker as any).flag_url} 
-                      alt={(war.attacker as any)?.name || 'Atacante'} 
-                      className="w-full h-full object-cover"
-                    />
+                  {war.attacker?.flag_emoji ? (
+                    <span className="text-xl">{war.attacker.flag_emoji}</span>
                   ) : (
-                    <span className="text-xl">{(war.attacker as any)?.flag_emoji || '⚔️'}</span>
+                    <span className="text-xl">⚔️</span>
                   )}
                 </div>
                 <p className="text-white/60 text-[10px] text-center leading-tight">
                   <Link 
-                    href={`/game/pais/${(war.attacker as any)?.slug || ''}`}
+                    href={`/game/pais/${war.attacker?.name?.toLowerCase().replace(/\s/g, '-') || ''}`}
                     className="hover:text-primary-light transition-colors"
                   >
-                    {(war.attacker as any)?.name || 'Atacante'}
+                    {war.attacker?.name || 'Atacante'}
                   </Link>
                 </p>
                 <p className="text-white/30 text-[8px]">Danos: 0</p>
@@ -195,22 +177,18 @@ export default function WarPage() {
 
               <div className="flex flex-col items-center w-16 flex-shrink-0">
                 <div className="w-10 h-10 rounded-full bg-black/40 border border-white/10 overflow-hidden flex items-center justify-center mb-1">
-                  {(war.defender as any)?.flag_url ? (
-                    <img 
-                      src={(war.defender as any).flag_url} 
-                      alt={(war.defender as any)?.name || 'Defensor'} 
-                      className="w-full h-full object-cover"
-                    />
+                  {war.defender?.flag_emoji ? (
+                    <span className="text-xl">{war.defender.flag_emoji}</span>
                   ) : (
-                    <span className="text-xl">{(war.defender as any)?.flag_emoji || '🛡️'}</span>
+                    <span className="text-xl">🛡️</span>
                   )}
                 </div>
                 <p className="text-white/60 text-[10px] text-center leading-tight">
                   <Link 
-                    href={`/game/pais/${(war.defender as any)?.slug || ''}`}
+                    href={`/game/pais/${war.defender?.name?.toLowerCase().replace(/\s/g, '-') || ''}`}
                     className="hover:text-primary-light transition-colors"
                   >
-                    {(war.defender as any)?.name || 'Defensor'}
+                    {war.defender?.name || 'Defensor'}
                   </Link>
                 </p>
                 <p className="text-white/30 text-[8px]">Danos: {formatNumber(1006608817)}</p>
@@ -221,7 +199,6 @@ export default function WarPage() {
         </div>
       </div>
 
-      {/* ─── MODAL DE ATAQUE (Slide-up) ───────────────────────── */}
       {attackWarId && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end">
           <div className="w-full bg-[#1a1a1a] rounded-t-2xl p-6 border-t border-white/5 max-h-[80vh] overflow-y-auto">
@@ -255,7 +232,7 @@ export default function WarPage() {
                 disabled={!attackUnit || submitting}
                 className="bg-red-600 hover:bg-red-500 disabled:opacity-30 text-white font-bold px-6 rounded-xl transition-colors"
               >
-                ATACAR
+                {submitting ? 'Atacando...' : 'ATACAR'}
               </button>
             </div>
 

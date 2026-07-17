@@ -67,54 +67,56 @@ export function useWar() {
   async function fetchAll() {
     setLoading(true)
     
-    // ✅ Fetch wars sem join (evita erro 400)
-    const [w, ww, t, m, attackerCountries, defenderCountries] = await Promise.all([
+    // ✅ 1. Buscar todas as guerras (sem JOIN, apenas IDs)
+    const [myWarsData, worldWarsData, trainingData, militaryData, allCountries] = await Promise.all([
+      // Minhas guerras
       supabase.from('wars')
         .select('id, attacker_id, defender_id, status, terrain, started_at')
         .or(`attacker_id.eq.${country!.id},defender_id.eq.${country!.id}`)
         .in('status', ['active','ceasefire']),
       
+      // Guerras do mundo
       supabase.from('wars')
         .select('id, attacker_id, defender_id, status, terrain, started_at')
         .in('status', ['active','ceasefire'])
         .order('started_at', { ascending: false })
         .limit(20),
       
+      // Treinamentos
       supabase.from('military_training')
         .select('*')
         .eq('country_id', country!.id)
         .order('created_at', { ascending: false })
         .limit(10),
       
+      // Militar
       supabase.from('military')
         .select('*')
         .eq('country_id', country!.id)
         .single(),
       
-      // Buscar todos os países (para cache)
-      supabase.from('countries')
-        .select('id, name, flag_emoji'),
-      
+      // ✅ 2. Buscar TODOS os países de uma vez
       supabase.from('countries')
         .select('id, name, flag_emoji'),
     ])
 
-    // ✅ Enriquecer wars com dados de países
+    // ✅ 3. Criar um Map com todos os países
     const countryMap = new Map()
-    ;[...((attackerCountries.data ?? []) as any[]), ...((defenderCountries.data ?? []) as any[])].forEach((c: any) => {
+    ;(allCountries.data ?? []).forEach((c: any) => {
       countryMap.set(c.id, { name: c.name, flag_emoji: c.flag_emoji })
     })
 
+    // ✅ 4. Função auxiliar para enriquecer as guerras
     const enrichWars = (wars: any[]) => wars.map((war: any) => ({
       ...war,
       attacker: countryMap.get(war.attacker_id) ?? { name: 'Desconhecido', flag_emoji: '🌐' },
       defender: countryMap.get(war.defender_id) ?? { name: 'Desconhecido', flag_emoji: '🌐' },
     }))
 
-    setMyWars(enrichWars(w.data ?? []))
-    setWorldWars(enrichWars(ww.data ?? []))
-    setTrainings(t.data ?? [])
-    setMilitary(m.data)
+    setMyWars(enrichWars(myWarsData.data ?? []))
+    setWorldWars(enrichWars(worldWarsData.data ?? []))
+    setTrainings(trainingData.data ?? [])
+    setMilitary(militaryData.data)
     setLoading(false)
   }
 

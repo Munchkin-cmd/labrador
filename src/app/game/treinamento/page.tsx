@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useWar } from '@/hooks/useWar'
 import { formatNumber } from '@/utils/format'
 
@@ -21,6 +21,13 @@ export default function TreinamentoPage() {
   const [feedback, setFeedback]           = useState('')
   const [submitting, setSubmitting]       = useState(false)
 
+  // ✅ Contagem regressiva em tempo real
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   if (loading) return <PageLoading />
 
   async function handleTrain() {
@@ -29,6 +36,15 @@ export default function TreinamentoPage() {
     const res = await startTraining(trainingUnit, trainingQty)
     setFeedback(res?.message ?? res?.error ?? 'Erro')
     setSubmitting(false)
+  }
+
+  // ✅ Calcula o tempo restante
+  const getRemainingTime = (endDate: string) => {
+    const diff = new Date(endDate).getTime() - now
+    if (diff <= 0) return 'Finalizado'
+    const hours = Math.floor(diff / 3600000)
+    const minutes = Math.floor((diff % 3600000) / 60000)
+    return `${hours}h ${minutes}m`
   }
 
   return (
@@ -64,7 +80,11 @@ export default function TreinamentoPage() {
           </button>
         </div>
 
-        {feedback && <p className="text-sm text-green-400 mb-2">{feedback}</p>}
+        {feedback && (
+          <p className={`text-sm mb-2 ${feedback.includes('Erro') ? 'text-red-400' : 'text-green-400'}`}>
+            {feedback}
+          </p>
+        )}
       </Section>
 
       {/* ─── TREINAMENTOS EM ANDAMENTO ─────────────────────────── */}
@@ -77,7 +97,7 @@ export default function TreinamentoPage() {
               <div className="flex justify-between items-center mb-1">
                 <p className="text-white/70 text-sm font-semibold">{t.equipment_type} × {t.quantity}</p>
                 <p className="text-white/40 text-xs">
-                  {new Date(t.end_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  ⏱️ {getRemainingTime(t.end_date)}
                 </p>
               </div>
               <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
