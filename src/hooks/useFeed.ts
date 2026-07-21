@@ -75,7 +75,9 @@ export function useFeed() {
     setLoading(false)
   }, [page, user?.id])
 
-  useEffect(() => { fetchArticles(true) }, [])
+  useEffect(() => { 
+  fetchArticles(true) 
+}, [fetchArticles])  // ✅ Monitora mudanças em fetchArticles
 
   async function voteArticle(articleId: string, vote: 1 | -1) {
     if (!user?.id) return

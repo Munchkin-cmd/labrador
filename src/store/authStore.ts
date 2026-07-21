@@ -22,7 +22,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
 
   setUser:    (user)    => set({ user, loading: false }),
-  setCountry: (country) => set({ country }),
+  // src/store/authStore.ts
+setCountry: (country) => set({ country, loading: false }),  // ✅ Seta loading false
 
   signOut: async () => {
     await supabase.auth.signOut()

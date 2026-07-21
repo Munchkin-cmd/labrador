@@ -1,11 +1,10 @@
 'use client'
 
-import { createContext, useContext, useEffect } from 'react'
+import { createContext, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { useAuthStore } from '@/store/authStore'
 
-// ✅ Interface local para o retorno da consulta (sem depender do database.ts)
 interface UserWithCountry {
   country_id: number | null
   countries: {
@@ -24,49 +23,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email! })
-        await fetchCountry(session.user.id)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (session?.user) {
+          setUser({ id: session.user.id, email: session.user.email! })
+          await fetchCountry(session.user.id)
 
-        // ✅ Se estiver na home, força a revalidação da sessão no servidor
-        if (pathname === '/game/home') {
-          router.refresh()
+          if (pathname === '/game/home') {
+            router.refresh()
+          }
+        } else {
+          useAuthStore.setState({ loading: false })
         }
-      } else {
+      } catch (err) {
+        console.error('Erro ao verificar sessão:', err)
         useAuthStore.setState({ loading: false })
       }
     }
 
     checkSession()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email! })
-        fetchCountry(session.user.id)
-        if (pathname === '/game/home') {
-          router.refresh()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        if (session?.user) {
+          setUser({ id: session.user.id, email: session.user.email! })
+          await fetchCountry(session.user.id)
+          if (pathname === '/game/home') {
+            router.refresh()
+          }
+        } else {
+          useAuthStore.setState({ user: null, country: null, loading: false })
         }
-      } else {
-        useAuthStore.setState({ user: null, country: null, loading: false })
+      } catch (err) {
+        console.error('Erro no auth state change:', err)
+        useAuthStore.setState({ loading: false })
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [pathname, router, setUser])
+  }, [pathname, router, setUser, setCountry])
 
   async function fetchCountry(userId: string) {
-    // ✅ Consulta com tipagem local (sem depender do Database)
-    const { data } = await supabase
-      .from('users')
-      .select('country_id, countries ( id, name, flag_emoji )')
-      .eq('user_id', userId)
-      .single() as unknown as { data: UserWithCountry | null }
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('country_id, countries!country_id ( id, name, flag_emoji )')
+        .eq('user_id', userId)
+        .single<UserWithCountry>()
 
-    if (data?.countries) {
-      const c = data.countries
-      setCountry({ id: c.id, name: c.name, flag_emoji: c.flag_emoji })
-    } else {
+      if (error) {
+        console.error('Erro ao buscar país:', error)
+        useAuthStore.setState({ loading: false })
+        return
+      }
+
+      if (data?.countries) {
+        const c = data.countries
+        setCountry({ id: c.id, name: c.name, flag_emoji: c.flag_emoji })
+      }
+      
+      useAuthStore.setState({ loading: false })
+    } catch (err) {
+      console.error('Erro inesperado ao buscar país:', err)
       useAuthStore.setState({ loading: false })
     }
   }

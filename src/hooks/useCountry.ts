@@ -14,13 +14,13 @@ export interface CountryFull {
   state_structure: string
   religion: string
   currency: string
-  language: string // ✅ Já adicionado
+  language: string
   trust: number
   intl_approval: number
   political_power: number
   total_regions: number
   flag_url?: string | null
-  is_active: boolean // ✅ ADICIONADO: Agora o TypeScript sabe que isso existe
+  is_active: boolean
 }
 
 export interface Economy {
@@ -55,36 +55,44 @@ export function useCountry() {
   const [economy, setEconomy] = useState<Economy | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // ✅ Memoizar fetchAll com useCallback para evitar loop infinito
   const fetchAll = useCallback(async () => {
     if (!country?.id) return
     
     setLoading(true)
+    setError(null)
 
-    const c = await supabase
-      .from('countries')
-      .select('*')
-      .eq('id', country.id)
-      .single<CountryFull>()
+    try {
+      const { data: result, error: err } = await supabase
+        .from('countries')
+        .select(`
+          *,
+          economy(*),
+          users(flag_url, leader_url, banner_urls)
+        `)
+        .eq('id', country.id)
+        .single<CountryFull & { economy: Economy; users: UserProfile }>()
 
-    const e = await supabase
-      .from('economy')
-      .select('*')
-      .eq('country_id', country.id)
-      .single<Economy>()
+      if (err) {
+        console.error('Erro ao buscar dados do país:', err)
+        setError(err.message)
+        setLoading(false)
+        return
+      }
 
-    const u = await supabase
-      .from('users')
-      .select('flag_url, leader_url, banner_urls')
-      .eq('country_id', country.id)
-      .single<UserProfile>()
-
-    if (c.data) setData(c.data)
-    if (e.data) setEconomy(e.data)
-    if (u.data) setProfile(u.data)
-    
-    setLoading(false)
+      if (result) {
+        setData(result)
+        setEconomy(result.economy)
+        setProfile(result.users)
+      }
+      
+      setLoading(false)
+    } catch (err) {
+      console.error('Erro inesperado:', err)
+      setError('Erro ao carregar dados')
+      setLoading(false)
+    }
   }, [country?.id])
 
   useEffect(() => {
@@ -92,5 +100,12 @@ export function useCountry() {
     fetchAll()
   }, [country?.id, fetchAll])
 
-  return { data, economy, profile, loading, refetch: fetchAll }
+  return { 
+    data, 
+    economy, 
+    profile, 
+    loading, 
+    error,
+    refetch: fetchAll 
+  }
 }
